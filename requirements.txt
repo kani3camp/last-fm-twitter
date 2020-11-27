@@ -1,0 +1,11 @@
+jsonschema
+tweepy
+unicodecsv
+urllib3
+requests
+requests-oauthlib
+click
+line-bot-sdk
+pillow
+dropbox
+chardet
