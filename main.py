@@ -290,10 +290,10 @@ def line_send_message(text, img_url1, img_url2):
     ]
     line_bot_api.push_message(user_id, messages=messages)
 
+today = datetime.date.today()
 
-def main():
+def pre_main():
     global period
-    today = datetime.date.today()
     weekday = today.weekday()
     day = today.day
     month = today.month
@@ -315,6 +315,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    pre_main()
 
 
