@@ -295,15 +295,18 @@ if __name__ == "__main__":
     day = today.day
     month = today.month
 
-    if weekday == 6:  # Sunday
-        period = Period.SEVEN_DAYS
-        main()
-    if day == 1:
-        period = Period.ONE_MONTH
-        main()
-    if month == 12 and day == 30:
-        period = Period.TWELVE_MONTH
-        main()
+    period = Period.SEVEN_DAYS
+    main()
+    # if weekday == 6:  # Sunday
+    #     period = Period.SEVEN_DAYS
+    #     main()
+    # if day == 1:
+    #     period = Period.ONE_MONTH
+    #     main()
+    # if month == 12 and day == 30:
+    #     period = Period.TWELVE_MONTH
+    #     main()
+    
     print(today)
     print('process end.')
 
