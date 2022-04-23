@@ -13,6 +13,9 @@ import random
 import dropbox
 import sys
 
+# .env ファイルをロードして環境変数へ反映
+from dotenv import load_dotenv
+load_dotenv()
 
 from linebot import (
     LineBotApi, WebhookHandler
@@ -288,7 +291,7 @@ def line_send_message(text, img_url1, img_url2):
     line_bot_api.push_message(user_id, messages=messages)
 
 
-if __name__ == "__main__":
+def main():
     global period
     today = datetime.date.today()
     weekday = today.weekday()
@@ -309,5 +312,9 @@ if __name__ == "__main__":
     
     print(today)
     print('process end.')
+
+
+if __name__ == "__main__":
+    main()
 
 
