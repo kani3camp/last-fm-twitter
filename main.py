@@ -66,13 +66,13 @@ def main():
     tweet_str = initial_tweet_str()
     draw_ranking_img(data)
 
-    twitter_api = initialize_twitter_api()
+    twitter_api: tweepy.API = initialize_twitter_api()
     twitter_api.update_with_media(filename='ranking.jpg', status=tweet_str)
     img_url1, img_url2 = upload_img_to_dropbox()
     line_send_message(tweet_str, img_url1, img_url2)
 
 
-def initialize_twitter_api():
+def initialize_twitter_api() -> tweepy.API:
     auth = tweepy.OAuthHandler(TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET)
     auth.set_access_token(TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET)
     return tweepy.API(auth)
