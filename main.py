@@ -67,7 +67,7 @@ def main():
     draw_ranking_img(data)
 
     twitter_api: tweepy.API = initialize_twitter_api()
-    twitter_api.update_with_media(filename='ranking.jpg', status=tweet_str)
+    twitter_api.update_status_with_media(filename='ranking.jpg', status=tweet_str)
     img_url1, img_url2 = upload_img_to_dropbox()
     line_send_message(tweet_str, img_url1, img_url2)
 

@@ -1,5 +1,5 @@
 jsonschema
-tweepy
+tweepy==4.10.0
 unicodecsv
 urllib3
 requests
