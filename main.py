@@ -15,6 +15,7 @@ import sys
 
 # .env ファイルをロードして環境変数へ反映
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from linebot import (
@@ -53,11 +54,11 @@ class Period:
     TWELVE_MONTH = '12month'
 
 
-FONT1 = 'fonts/azuki.ttf'             # http://azukifont.com/font/azuki.html
-FONT2 = 'fonts/Ronde-B_square.otf'    # https://moji-waku.com/ronde/
-FONT3 = 'fonts/851letrogo_007.ttf'    # http://pm85122.onamae.jp/851letrogopage.html
-FONT4 = 'fonts/logotypejp_mp_b_1.1.ttf'   # https://logotype.jp/corporate-logo-font-dl.html#i-11
-FONT5 = 'fonts/logotypejp_mp_m_1.1.ttf'   # https://logotype.jp/corporate-logo-font-dl.html#i-11
+FONT1 = 'fonts/azuki.ttf'  # http://azukifont.com/font/azuki.html
+FONT2 = 'fonts/Ronde-B_square.otf'  # https://moji-waku.com/ronde/
+FONT3 = 'fonts/851letrogo_007.ttf'  # http://pm85122.onamae.jp/851letrogopage.html
+FONT4 = 'fonts/logotypejp_mp_b_1.1.ttf'  # https://logotype.jp/corporate-logo-font-dl.html#i-11
+FONT5 = 'fonts/logotypejp_mp_m_1.1.ttf'  # https://logotype.jp/corporate-logo-font-dl.html#i-11
 
 
 def main():
@@ -65,7 +66,7 @@ def main():
     # ツイートする文字列
     tweet_str = initial_tweet_str()
     draw_ranking_img(data)
-
+    
     twitter_api: tweepy.API = initialize_twitter_api()
     twitter_api.update_status_with_media(filename='ranking.jpg', status=tweet_str)
     img_url1, img_url2 = upload_img_to_dropbox()
@@ -126,7 +127,8 @@ def draw_ranking_img(data):
     # 日付
     font_size = 40
     font = ImageFont.truetype(font=FONT4, size=font_size)
-    position = (img_size[0] - draw.textsize(str(today), font)[0] - 10, img_size[1] - draw.textsize(str(today), font)[1] -10)
+    position = (
+    img_size[0] - draw.textsize(str(today), font)[0] - 10, img_size[1] - draw.textsize(str(today), font)[1] - 10)
     draw.text(xy=position, text=str(today), fill='white', font=font)
     
     img.save('ranking.jpg')
@@ -138,7 +140,7 @@ def draw_table(draw, size, data):
     global theme_color
     width, height = size
     num_songs = 10
-
+    
     margin_top = 100
     margin_bottom = 50
     side_margin = 20
@@ -161,7 +163,7 @@ def draw_table(draw, size, data):
     xy = (left_top, right_top)
     for n in range(num_songs):
         xy = [list(xy[0]), list(xy[1])]
-        xy[0][1] = xy[0][1] + int(table_height/11)
+        xy[0][1] = xy[0][1] + int(table_height / 11)
         xy[1][1] = xy[0][1]
         xy = (tuple(xy[0]), tuple(xy[1]))
         draw.line(xy, fill=theme_color, width=5)
@@ -183,7 +185,7 @@ def draw_table(draw, size, data):
     if track_num != num_songs:
         print('再生履歴が少なすぎます')
         sys.exit()
-                
+    
     # 順位
     rank_size = 80
     rank_xy = (left_top[0] + 10, left_top[1] + 10)
@@ -196,13 +198,13 @@ def draw_table(draw, size, data):
             text = str(n)
             if n < 10:
                 rank_size = 100
-                rank_xy = (left_top[0] + 25, left_top[1] + 10 + n*int(table_height/(num_songs+1)))
+                rank_xy = (left_top[0] + 25, left_top[1] + 10 + n * int(table_height / (num_songs + 1)))
             else:
                 rank_size = 85
-                rank_xy = (left_top[0] + 5, left_top[1] + 10 + n*int(table_height/(num_songs+1)))
+                rank_xy = (left_top[0] + 5, left_top[1] + 10 + n * int(table_height / (num_songs + 1)))
             font = ImageFont.truetype(font=FONT3, size=rank_size)
             draw.text(xy=rank_xy, text=text, fill='purple', font=font)
-
+    
     # タイトル
     title_size = 75
     font = ImageFont.truetype(font=FONT4, size=title_size)
@@ -210,7 +212,7 @@ def draw_table(draw, size, data):
     for n in range(num_songs + 1):
         draw.text(xy=title_xy, text=titles[n], fill=(255, 130, 39), font=font)
         title_xy = list(title_xy)
-        title_xy[1] = title_xy[1] + int(table_height/(num_songs+1))
+        title_xy[1] = title_xy[1] + int(table_height / (num_songs + 1))
         title_xy = tuple(title_xy)
     
     # 再生回数
@@ -223,26 +225,26 @@ def draw_table(draw, size, data):
             text += '回'
         draw.text(xy=playcount_xy, text=text, fill=0, font=font)
         playcount_xy = list(playcount_xy)
-        playcount_xy[1] = playcount_xy[1] + int(table_height/(num_songs+1))
+        playcount_xy[1] = playcount_xy[1] + int(table_height / (num_songs + 1))
         playcount_xy = tuple(playcount_xy)
     
     # アーティスト
     for n in range(num_songs + 1):
         artist = '' + artists[n]
         artist_xy = (width - side_margin - draw.textsize(artist, font)[0] - 20,
-                     left_top[1] + 110 + n * int(table_height/(num_songs+1)))
+                     left_top[1] + 110 + n * int(table_height / (num_songs + 1)))
         artist_size = 65
         font = ImageFont.truetype(font=FONT5, size=artist_size)
-        while draw.textsize(artist, font)[0] > width - 2*side_margin - rank_width - 200:
+        while draw.textsize(artist, font)[0] > width - 2 * side_margin - rank_width - 200:
             artist = artist[:-2] + '…'
             artist_xy = (width - side_margin - draw.textsize(artist, font)[0] - 20,
                          left_top[1] + 110 + n * int(table_height / (num_songs + 1)))
         font = ImageFont.truetype(font=FONT5, size=artist_size)
         draw.text(xy=artist_xy, text=artist, fill='black', font=font)
         artist_xy = list(artist_xy)
-        artist_xy[1] = artist_xy[1] + int(table_height/(num_songs+1))
+        artist_xy[1] = artist_xy[1] + int(table_height / (num_songs + 1))
         artist_xy = tuple(artist_xy)
-    
+
 
 def len_tweet(text):
     count = 0
@@ -272,7 +274,7 @@ def upload_img_to_dropbox():
     #         img_url = img_url.replace('www.dropbox', 'dl.dropboxusercontent').replace('?dl=0', '')
     #         print(img_url)
     #         return img_url
-
+    
     # 上の方法だとlink取得時にshared_link_already_existsエラーが出る
     # ただしurlは毎回以下のようになる。
     return 'https://dl.dropboxusercontent.com/s/thcrs9h1x1031ti/ranking.jpg', \
@@ -290,25 +292,29 @@ def line_send_message(text, img_url1, img_url2):
     ]
     line_bot_api.push_message(user_id, messages=messages)
 
+
 today = datetime.date.today()
+
 
 def pre_main():
     global period
     weekday = today.weekday()
     day = today.day
     month = today.month
-
-    period = Period.SEVEN_DAYS
-    main()
-    # if weekday == 6:  # Sunday
-    #     period = Period.SEVEN_DAYS
-    #     main()
-    # if day == 1:
-    #     period = Period.ONE_MONTH
-    #     main()
-    # if month == 12 and day == 30:
-    #     period = Period.TWELVE_MONTH
-    #     main()
+    
+    # デバッグ用
+    # period = Period.SEVEN_DAYS
+    # main()
+    
+    if weekday == 6:  # Sunday
+        period = Period.SEVEN_DAYS
+        main()
+    if day == 1:
+        period = Period.ONE_MONTH
+        main()
+    if month == 12 and day == 30:
+        period = Period.TWELVE_MONTH
+        main()
     
     print(today)
     print('process end.')
@@ -316,5 +322,3 @@ def pre_main():
 
 if __name__ == "__main__":
     pre_main()
-
-
