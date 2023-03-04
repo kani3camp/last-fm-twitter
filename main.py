@@ -128,7 +128,7 @@ def draw_ranking_img(data):
     font_size = 40
     font = ImageFont.truetype(font=FONT4, size=font_size)
     position = (
-    img_size[0] - draw.textsize(str(today), font)[0] - 10, img_size[1] - draw.textsize(str(today), font)[1] - 10)
+        img_size[0] - draw.textsize(str(today), font)[0] - 10, img_size[1] - draw.textsize(str(today), font)[1] - 10)
     draw.text(xy=position, text=str(today), fill='white', font=font)
     
     img.save('ranking.jpg')
@@ -278,7 +278,7 @@ def upload_img_to_dropbox():
     # 上の方法だとlink取得時にshared_link_already_existsエラーが出る
     # ただしurlは毎回以下のようになる。
     return 'https://dl.dropboxusercontent.com/s/thcrs9h1x1031ti/ranking.jpg', \
-           'https://dl.dropboxusercontent.com/s/thcrs9h1x1031ti/ranking_preview.jpg'
+        'https://dl.dropboxusercontent.com/s/thcrs9h1x1031ti/ranking_preview.jpg'
 
 
 def line_send_message(text, img_url1, img_url2):
