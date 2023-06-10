@@ -2,50 +2,38 @@
 # App ID : 16411000
 #
 import os
+import boto3
 
-import tweepy
 import urllib.request
 import json
 import unicodedata
 import datetime
 from PIL import Image, ImageFont, ImageDraw
 import random
-import dropbox
 import sys
+import requests
+from PIL.ImageFont import FreeTypeFont
 
 # .env ファイルをロードして環境変数へ反映
 from dotenv import load_dotenv
 
+from utils import draw_width, draw_height
+
 load_dotenv()
 
-from linebot import (
-    LineBotApi, WebhookHandler
-)
-from linebot.exceptions import (
-    InvalidSignatureError
-)
-from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage, ImageSendMessage
-)
 
-YOUR_CHANNEL_ACCESS_TOKEN = os.environ['LineMessageAPIChannelAccessToken']
-YOUR_CHANNEL_SECRET = os.environ['LineMessageAPIChannelSecret']
-line_bot_api = LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(YOUR_CHANNEL_SECRET)
-
-TWITTER_CONSUMER_KEY = os.environ['TWITTER_CONSUMER_KEY']
-TWITTER_CONSUMER_SECRET = os.environ['TWITTER_CONSUMER_SECRET']
-TWITTER_ACCESS_TOKEN = os.environ['TWITTER_ACCESS_TOKEN']
-TWITTER_ACCESS_TOKEN_SECRET = os.environ['TWITTER_ACCESS_TOKEN_SECRET']
-
-DROPBOX_TOKEN = os.environ['DROPBOX_TOKEN']
+LOCAL_IMG_PATH = 'ranking.jpg'
+LAMBDA_IMG_PATH = '/tmp/ranking.jpg'
 
 LASTFM_API_KEY = os.environ['LASTFM_API_KEY']
+DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
-LINE_USER_ID = os.environ['LINE_USER_ID']
+S3_BUCKET_NAME = 'last-fm-twitter'
 
 global period
 global theme_color
+is_lambda = False
+today = datetime.date.today()
 
 
 class Period:
@@ -64,20 +52,18 @@ FONT5 = 'fonts/logotypejp_mp_m_1.1.ttf'  # https://logotype.jp/corporate-logo-fo
 def main():
     data = get_last_fm_tracks()
     # ツイートする文字列
-    tweet_str = initial_tweet_str()
-    draw_ranking_img(data)
+    message = initial_message_str()
+    draw_ranking_img(data, img_path=img_path())
     
-    twitter_api: tweepy.API = initialize_twitter_api()
-    twitter_api.update_status_with_media(filename='ranking.jpg', status=tweet_str)
-    img_url1, img_url2 = upload_img_to_dropbox()
-    line_send_message(tweet_str, img_url1, img_url2)
+    send_image_to_discord(message, DISCORD_WEBHOOK_URL, img_path())
 
 
-def initialize_twitter_api() -> tweepy.API:
-    auth = tweepy.OAuthHandler(TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET)
-    auth.set_access_token(TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET)
-    return tweepy.API(auth)
-
+def img_path() -> str:
+    if is_lambda:
+        return LAMBDA_IMG_PATH
+    else:
+        return LOCAL_IMG_PATH
+    
 
 def get_last_fm_tracks():
     global period
@@ -96,7 +82,7 @@ def get_last_fm_tracks():
         return body
 
 
-def initial_tweet_str():
+def initial_message_str():
     tweet = 'そららPが'
     if period == Period.SEVEN_DAYS:
         tweet += '今週'
@@ -108,35 +94,33 @@ def initial_tweet_str():
     return tweet[:-1]
 
 
-def draw_ranking_img(data):
+def draw_ranking_img(data, img_path: str):
     global period
     global theme_color
     theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     img_size = (1080, 2160)
     img = Image.new('RGB', img_size, color=theme_color)
-    draw = ImageDraw.Draw(img)
+    draw: ImageDraw = ImageDraw.Draw(img)
     
     # 画像見出し
     font_size = 70
-    font = ImageFont.truetype(font=FONT4, size=font_size)
-    position = (int(img_size[0] / 2 - draw.textsize(initial_tweet_str(), font)[0] / 2), 10)
-    draw.text(xy=position, text=initial_tweet_str(), fill='white', font=font)
+    font: FreeTypeFont = ImageFont.truetype(font=f'/tmp/{FONT4}' if is_lambda else FONT4, size=font_size)
+    position = (int(img_size[0] / 2 - draw_width(draw, initial_message_str(), font) / 2), 10)
+    draw.text(xy=position, text=initial_message_str(), fill='white', font=font)
     
     draw_table(draw, img_size, data)
     
     # 日付
     font_size = 40
-    font = ImageFont.truetype(font=FONT4, size=font_size)
+    font = ImageFont.truetype(font=f'/tmp/{FONT4}' if is_lambda else FONT4, size=font_size)
     position = (
-        img_size[0] - draw.textsize(str(today), font)[0] - 10, img_size[1] - draw.textsize(str(today), font)[1] - 10)
+        img_size[0] - draw_width(draw, str(today), font) - 10, img_size[1] - draw_height(draw, str(today), font) - 10)
     draw.text(xy=position, text=str(today), fill='white', font=font)
     
-    img.save('ranking.jpg')
-    img2 = img.resize((120, 240))
-    img2.save('ranking_preview.jpg')
+    img.save(img_path)
 
 
-def draw_table(draw, size, data):
+def draw_table(draw: ImageDraw, size, data):
     global theme_color
     width, height = size
     num_songs = 10
@@ -191,7 +175,7 @@ def draw_table(draw, size, data):
     rank_xy = (left_top[0] + 10, left_top[1] + 10)
     for n in range(num_songs + 1):
         if n == 0:
-            font = ImageFont.truetype(font=FONT1, size=rank_size)
+            font = ImageFont.truetype(font=f'/tmp/{FONT1}' if is_lambda else FONT1, size=rank_size)
             text = '順\n位'
             draw.text(xy=rank_xy, text=text, fill=0, font=font)
         else:
@@ -202,12 +186,12 @@ def draw_table(draw, size, data):
             else:
                 rank_size = 85
                 rank_xy = (left_top[0] + 5, left_top[1] + 10 + n * int(table_height / (num_songs + 1)))
-            font = ImageFont.truetype(font=FONT3, size=rank_size)
+            font = ImageFont.truetype(font=f'/tmp/{FONT3}' if is_lambda else FONT3, size=rank_size)
             draw.text(xy=rank_xy, text=text, fill='purple', font=font)
     
     # タイトル
     title_size = 75
-    font = ImageFont.truetype(font=FONT4, size=title_size)
+    font = ImageFont.truetype(font=f'/tmp/{FONT4}' if is_lambda else FONT4, size=title_size)
     title_xy = (left_top[0] + rank_width + 20, left_top[1] + 10)
     for n in range(num_songs + 1):
         draw.text(xy=title_xy, text=titles[n], fill=(255, 130, 39), font=font)
@@ -218,7 +202,7 @@ def draw_table(draw, size, data):
     # 再生回数
     playcount_xy = (left_top[0] + rank_width + 20, left_top[1] + 110)
     playcount_size = 60
-    font = ImageFont.truetype(font=FONT5, size=playcount_size)
+    font = ImageFont.truetype(font=f'/tmp/{FONT5}' if is_lambda else FONT5, size=playcount_size)
     for n in range(num_songs + 1):
         text = playcount[n]
         if n != 0:  # 凡例には「回」を付けない
@@ -231,15 +215,15 @@ def draw_table(draw, size, data):
     # アーティスト
     for n in range(num_songs + 1):
         artist = '' + artists[n]
-        artist_xy = (width - side_margin - draw.textsize(artist, font)[0] - 20,
+        artist_xy = (width - side_margin - draw_width(draw, artist, font) - 20,
                      left_top[1] + 110 + n * int(table_height / (num_songs + 1)))
         artist_size = 65
-        font = ImageFont.truetype(font=FONT5, size=artist_size)
-        while draw.textsize(artist, font)[0] > width - 2 * side_margin - rank_width - 200:
+        font = ImageFont.truetype(font=f'/tmp/{FONT5}' if is_lambda else FONT5, size=artist_size)
+        while draw_width(draw, artist, font) > width - 2 * side_margin - rank_width - 200:
             artist = artist[:-2] + '…'
             artist_xy = (width - side_margin - draw.textsize(artist, font)[0] - 20,
                          left_top[1] + 110 + n * int(table_height / (num_songs + 1)))
-        font = ImageFont.truetype(font=FONT5, size=artist_size)
+        font = ImageFont.truetype(font=f'/tmp/{FONT5}' if is_lambda else FONT5, size=artist_size)
         draw.text(xy=artist_xy, text=artist, fill='black', font=font)
         artist_xy = list(artist_xy)
         artist_xy[1] = artist_xy[1] + int(table_height / (num_songs + 1))
@@ -256,44 +240,25 @@ def len_tweet(text):
     return count
 
 
-def upload_img_to_dropbox():
-    dbx = dropbox.Dropbox(DROPBOX_TOKEN)
-    # dbx.users_get_current_account()
-    with open('ranking.jpg', "rb") as f:
-        dbx.files_upload(f.read(), '/ranking.jpg', mode=dropbox.files.WriteMode.overwrite)
-    with open('ranking_preview.jpg', "rb") as f:
-        dbx.files_upload(f.read(), '/ranking_preview.jpg', mode=dropbox.files.WriteMode.overwrite)
+def send_image_to_discord(message, webhook_url, file_path):
+    data = {
+        'content': message
+    }
+    file_data = {
+        'file': (open(file_path, 'rb'))
+    }
+    response = requests.post(webhook_url, data=data, files=file_data)
+    print(f'Response: {response}')
+
+
+def download_s3_ttf(bucket_name: str, file_path: str):
+    s3 = boto3.client('s3')
     
-    # ファイルのリンクを取得
-    # setting = dropbox.sharing.SharedLinkSettings(requested_visibility=dropbox.sharing.RequestedVisibility.public)
-    # link = dbx.sharing_create_shared_link_with_settings(path='/ranking.jpg', settings=setting)
-    # links = dbx.sharing_list_shared_links(path='/ranking.jpg', direct_only=True).links
-    # if links is not None:
-    #     for link in links:
-    #         img_url = link.url
-    #         img_url = img_url.replace('www.dropbox', 'dl.dropboxusercontent').replace('?dl=0', '')
-    #         print(img_url)
-    #         return img_url
+    bucket = bucket_name
+    key = file_path
+    download_path = f'/tmp/{file_path}'  # Lambda has write access to the /tmp directory
     
-    # 上の方法だとlink取得時にshared_link_already_existsエラーが出る
-    # ただしurlは毎回以下のようになる。
-    return 'https://dl.dropboxusercontent.com/s/thcrs9h1x1031ti/ranking.jpg', \
-        'https://dl.dropboxusercontent.com/s/thcrs9h1x1031ti/ranking_preview.jpg'
-
-
-def line_send_message(text, img_url1, img_url2):
-    user_id = LINE_USER_ID
-    messages = [
-        ImageSendMessage(
-            original_content_url=img_url1,
-            preview_image_url=img_url2
-        ),
-        TextSendMessage(text=text)
-    ]
-    line_bot_api.push_message(user_id, messages=messages)
-
-
-today = datetime.date.today()
+    s3.download_file(bucket, key, download_path)
 
 
 def pre_main():
@@ -303,22 +268,31 @@ def pre_main():
     month = today.month
     
     # デバッグ用
-    # period = Period.SEVEN_DAYS
-    # main()
+    period = Period.ONE_MONTH
+    main()
     
-    if weekday == 6:  # Sunday
-        period = Period.SEVEN_DAYS
-        main()
-    if day == 1:
-        period = Period.ONE_MONTH
-        main()
-    if month == 12 and day == 30:
-        period = Period.TWELVE_MONTH
-        main()
+    # if weekday == 6:  # Sunday
+    #     period = Period.SEVEN_DAYS
+    #     main()
+    # if day == 1:
+    #     period = Period.ONE_MONTH
+    #     main()
+    # if month == 12 and day == 30:
+    #     period = Period.TWELVE_MONTH
+    #     main()
     
     print(today)
     print('process end.')
 
 
 if __name__ == "__main__":
+    pre_main()
+
+
+def lambda_handler(event, context):
+    global is_lambda
+    is_lambda = True
+    
+    for f in [FONT1, FONT2, FONT3, FONT4, FONT5]:
+        download_s3_ttf(bucket_name=S3_BUCKET_NAME, file_path=f)
     pre_main()
