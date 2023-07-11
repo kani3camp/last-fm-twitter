@@ -33,7 +33,9 @@ S3_BUCKET_NAME = 'last-fm-twitter'
 global period
 global theme_color
 is_lambda = False
-today = datetime.date.today()
+
+JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
+today = datetime.datetime.now(JST).date()
 
 
 class Period:
@@ -268,18 +270,18 @@ def pre_main():
     month = today.month
     
     # デバッグ用
-    period = Period.ONE_MONTH
-    main()
+    # period = Period.ONE_MONTH
+    # main()
     
-    # if weekday == 6:  # Sunday
-    #     period = Period.SEVEN_DAYS
-    #     main()
-    # if day == 1:
-    #     period = Period.ONE_MONTH
-    #     main()
-    # if month == 12 and day == 30:
-    #     period = Period.TWELVE_MONTH
-    #     main()
+    if weekday == 6:  # Sunday
+        period = Period.SEVEN_DAYS
+        main()
+    if day == 1:
+        period = Period.ONE_MONTH
+        main()
+    if month == 12 and day == 30:
+        period = Period.TWELVE_MONTH
+        main()
     
     print(today)
     print('process end.')
@@ -293,6 +295,7 @@ def lambda_handler(event, context):
     global is_lambda
     is_lambda = True
     
+    os.makedirs('/tmp/fonts/', exist_ok=True)
     for f in [FONT1, FONT2, FONT3, FONT4, FONT5]:
         download_s3_ttf(bucket_name=S3_BUCKET_NAME, file_path=f)
     pre_main()
