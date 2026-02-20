@@ -54,12 +54,12 @@ def main():
     data = get_last_fm_tracks()
     # ツイートする文字列
     message = initial_message_str()
-    draw_ranking_img(data, img_path=img_path())
+    draw_ranking_img(data, img_path=resolve_img_path())
 
-    send_image_to_discord(message, DISCORD_WEBHOOK_URL, img_path())
+    send_image_to_discord(message, DISCORD_WEBHOOK_URL, resolve_img_path())
 
 
-def img_path() -> str:
+def resolve_img_path() -> str:
     if is_lambda:
         return LAMBDA_IMG_PATH
     else:
@@ -68,7 +68,7 @@ def img_path() -> str:
 
 def get_last_fm_tracks():
     global period
-    url = "http://ws.audioscrobbler.com/2.0/"
+    url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "format": "json",
         "api_key": LASTFM_API_KEY,
@@ -101,7 +101,7 @@ def draw_ranking_img(data, img_path: str):
     theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     img_size = (1080, 2160)
     img = Image.new("RGB", img_size, color=theme_color)
-    draw: ImageDraw = ImageDraw.Draw(img)
+    draw: ImageDraw.ImageDraw = ImageDraw.Draw(img)
 
     # 画像見出し
     font_size = 70
@@ -123,7 +123,7 @@ def draw_ranking_img(data, img_path: str):
     img.save(img_path)
 
 
-def draw_table(draw: ImageDraw, size, data):
+def draw_table(draw: ImageDraw.ImageDraw, size, data):
     global theme_color
     width, height = size
     num_songs = 10
@@ -235,16 +235,6 @@ def draw_table(draw: ImageDraw, size, data):
         artist_xy = list(artist_xy)
         artist_xy[1] = artist_xy[1] + int(table_height / (num_songs + 1))
         artist_xy = tuple(artist_xy)
-
-
-def len_tweet(text):
-    count = 0
-    for c in text:
-        if unicodedata.east_asian_width(c) in "Na":
-            count += 1
-        else:
-            count += 2
-    return count
 
 
 def send_image_to_discord(message, webhook_url, file_path):
