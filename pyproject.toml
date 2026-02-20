@@ -1,0 +1,27 @@
+[project]
+name = "last-fm-twitter"
+version = "0.1.0"
+description = "Last.fm Twitter integration"
+requires-python = ">=3.13"
+dependencies = [
+    "jsonschema",
+    "tweepy==4.10.0",
+    "unicodecsv",
+    "urllib3",
+    "requests",
+    "requests-oauthlib",
+    "click",
+    "line-bot-sdk",
+    "pillow",
+    "dropbox",
+    "chardet",
+    "python-dotenv",
+    "boto3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
