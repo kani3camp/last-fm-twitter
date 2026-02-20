@@ -292,11 +292,29 @@ if __name__ == "__main__":
     pre_main()
 
 
+PERIOD_BY_KEY = {
+    "7day": Period.SEVEN_DAYS,
+    "1month": Period.ONE_MONTH,
+    "12month": Period.TWELVE_MONTH,
+}
+
+
 def lambda_handler(event, context):
-    global is_lambda
+    global is_lambda, period
     is_lambda = True
 
     os.makedirs("/tmp/fonts/", exist_ok=True)
     for f in [FONT1, FONT2, FONT3, FONT4, FONT5]:
         download_s3_ttf(bucket_name=S3_BUCKET_NAME, file_path=f)
+
+    # テスト用: イベントで period を指定されていればそれで実行
+    if event and (key := event.get("period")):
+        if key in PERIOD_BY_KEY:
+            period = PERIOD_BY_KEY[key]
+            main()
+            print(today)
+            print("process end.")
+            return
+        raise ValueError(f"period must be one of: {list(PERIOD_BY_KEY)}")
+
     pre_main()
