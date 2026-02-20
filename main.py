@@ -6,7 +6,6 @@ import json
 import os
 import random
 import sys
-import unicodedata
 import urllib.request
 
 import boto3
@@ -227,7 +226,7 @@ def draw_table(draw: ImageDraw.ImageDraw, size, data):
         while draw_width(draw, artist, font) > width - 2 * side_margin - rank_width - 200:
             artist = artist[:-2] + "…"
             artist_xy = (
-                width - side_margin - draw.textsize(artist, font)[0] - 20,
+                width - side_margin - draw_width(draw, artist, font) - 20,
                 left_top[1] + 110 + n * int(table_height / (num_songs + 1)),
             )
         font = ImageFont.truetype(font=f"/tmp/{FONT5}" if is_lambda else FONT5, size=artist_size)
