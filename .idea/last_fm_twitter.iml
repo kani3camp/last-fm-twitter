@@ -5,6 +5,7 @@
       <excludeFolder url="file://$MODULE_DIR$/archives" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/layer" />
     </content>
     <orderEntry type="jdk" jdkName="uv (last-fm-twitter)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
