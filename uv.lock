@@ -132,6 +132,15 @@ wheels = [
 ]
 
 [[package]]
+name = "invoke"
+version = "2.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/de/bd/b461d3424a24c80490313fd77feeb666ca4f6a28c7e72713e3d9095719b4/invoke-2.2.1.tar.gz", hash = "sha256:515bf49b4a48932b79b024590348da22f39c4942dff991ad1fb8b8baea1be707", size = 304762 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/4b/b99e37f88336009971405cbb7630610322ed6fbfa31e1d7ab3fbf3049a2d/invoke-2.2.1-py3-none-any.whl", hash = "sha256:2413bc441b376e5cd3f55bb5d364f973ad8bdd7bf87e53c79de3c11bf3feecc8", size = 160287 },
+]
+
+[[package]]
 name = "jmespath"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -154,6 +163,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "invoke" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -162,6 +172,7 @@ dev = [
 requires-dist = [
     { name = "boto3" },
     { name = "boto3-stubs", specifier = "~=1.42.53" },
+    { name = "invoke", marker = "extra == 'dev'" },
     { name = "pillow" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "python-dotenv" },

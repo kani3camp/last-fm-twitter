@@ -17,6 +17,18 @@ uv sync
 uv sync --extra dev
 ```
 
+### 短いコマンドで実行したいとき（invoke）
+
+dev 依存を入れたあと、[invoke](https://www.pyinvoke.org/) でタスクを実行できます（uv で一緒にインストールされるので、別途ツールのインストールは不要です）。
+
+```bash
+uv run inv lint   # uv run ruff check --fix .
+uv run inv test   # uv run pytest tests/ -v
+uv run inv --list # 利用可能なタスク一覧
+```
+
+後述のとおり、`uv run pytest ...` などフルコマンドでそのまま実行してもかまいません。
+
 ## テストのやり方
 
 ### テストの実行
@@ -25,6 +37,7 @@ uv sync --extra dev
 
 ```bash
 uv run pytest tests/ -v
+# または uv run inv test
 ```
 
 初回や `pyproject.toml` の依存を変えたあとは、先に `uv sync --extra dev` で dev 依存を入れておく。
