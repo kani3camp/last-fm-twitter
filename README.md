@@ -17,17 +17,22 @@ uv sync
 uv sync --extra dev
 ```
 
+### コマンド
+
+dev 依存（`uv sync --extra dev`）を入れたあと、[invoke](https://www.pyinvoke.org/) で次を実行する（uv で一緒にインストールされるため、別途ツールのインストールは不要）。
+
+```bash
+uv run inv lint    # ruff format のあと ruff check --fix
+uv run inv test    # pytest
+uv run inv check   # lint のあと test を一括実行
+uv run inv --list  # 利用可能なタスク一覧
+```
+
 ## テストのやり方
 
 ### テストの実行
 
-プロジェクトルートで以下を実行する。
-
-```bash
-uv run pytest tests/ -v
-```
-
-初回や `pyproject.toml` の依存を変えたあとは、先に `uv sync --extra dev` で dev 依存を入れておく。
+`uv run inv test` でテストを実行する。lint と test をまとめて回す場合は `uv run inv check`。
 
 ### 画像処理のテストについて
 
@@ -38,15 +43,3 @@ uv run pytest tests/ -v
 
 **レイアウトやフォントを変えたとき:**  
 正解画像を差し替えるには、`fonts/` を用意したうえで `uv run python scripts/generate_expected_image.py` を実行し、生成された `tests/fixtures/expected_ranking_7day.png` をコミットしてください。
-
-### 画像テストだけ実行する場合
-
-```bash
-uv run pytest tests/test_draw_ranking.py -v
-```
-
-スキップ理由を確認したいときは `-rs` を付ける。
-
-```bash
-uv run pytest tests/test_draw_ranking.py -v -rs
-```

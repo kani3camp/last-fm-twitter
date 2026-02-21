@@ -8,8 +8,6 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageChops
 
-from tests.conftest import fonts_available
-
 # conftest で env を設定した後に import
 import main
 
@@ -26,9 +24,9 @@ def fixture_data():
         return json.load(f)
 
 
-def test_draw_ranking_img_matches_expected(fixture_data, tmp_path):
+def test_draw_ranking_img_matches_expected(fixture_data, tmp_path, monkeypatch, fonts_available):
     """固定データ・色・日付で画像を生成し、正解 PNG とピクセル一致するか検証する。"""
-    if not fonts_available():
+    if not fonts_available:
         pytest.skip("画像テストには fonts/ に FONT1〜FONT5 を配置してください")
 
     if not EXPECTED_IMAGE.exists():
@@ -37,8 +35,8 @@ def test_draw_ranking_img_matches_expected(fixture_data, tmp_path):
             "scripts/generate_expected_image.py で生成してから再実行してください。"
         )
 
-    main.period = main.Period.SEVEN_DAYS
-    main.today = __parse_date(FIXED_DATE_STR)
+    monkeypatch.setattr(main, "period", main.Period.SEVEN_DAYS)
+    monkeypatch.setattr(main, "today", __parse_date(FIXED_DATE_STR))
 
     out_path = tmp_path / "out.png"
     main.draw_ranking_img(

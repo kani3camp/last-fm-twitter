@@ -4,6 +4,8 @@ conftest はテストより先に読み込まれるためここで環境変数�
 """
 import os
 
+import pytest
+
 os.environ.setdefault("LASTFM_API_KEY", "dummy_for_test")
 os.environ.setdefault("DISCORD_WEBHOOK_URL", "https://example.com/dummy")
 
@@ -17,6 +19,12 @@ REQUIRED_FONTS = [
 ]
 
 
-def fonts_available() -> bool:
+def _fonts_available() -> bool:
     """画像テストに必要な fonts/ がすべて存在するか。"""
     return all(os.path.isfile(p) for p in REQUIRED_FONTS)
+
+
+@pytest.fixture
+def fonts_available():
+    """Expose font check as a fixture so tests don't import conftest directly."""
+    return _fonts_available()

@@ -28,9 +28,9 @@ DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 
 S3_BUCKET_NAME = "last-fm-twitter"
 
-global period
-global theme_color
 is_lambda = False
+period = None  # set in pre_main() or lambda_handler()
+theme_color = None  # set in draw_ranking_img()
 
 JST = datetime.timezone(datetime.timedelta(hours=+9), "JST")
 today = datetime.datetime.now(JST).date()
