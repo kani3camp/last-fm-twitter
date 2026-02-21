@@ -6,6 +6,7 @@ import json
 import os
 import random
 import sys
+import urllib.parse
 import urllib.request
 
 import boto3

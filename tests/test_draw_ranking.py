@@ -11,6 +11,7 @@ from PIL import Image, ImageChops
 # conftest で env を設定した後に import
 import main
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 EXPECTED_IMAGE = FIXTURES_DIR / "expected_ranking_7day.png"
 # テスト用に固定（正解画像生成時と同じ値にすること）
@@ -37,6 +38,7 @@ def test_draw_ranking_img_matches_expected(fixture_data, tmp_path, monkeypatch, 
 
     monkeypatch.setattr(main, "period", main.Period.SEVEN_DAYS)
     monkeypatch.setattr(main, "today", __parse_date(FIXED_DATE_STR))
+    monkeypatch.chdir(PROJECT_ROOT)  # main は fonts/ を CWD 相対で参照するため
 
     out_path = tmp_path / "out.png"
     main.draw_ranking_img(
