@@ -94,10 +94,13 @@ def initial_message_str():
     return tweet[:-1]
 
 
-def draw_ranking_img(data, img_path: str):
+def draw_ranking_img(data, img_path: str, theme_color_override: tuple[int, int, int] | None = None):
     global period
     global theme_color
-    theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    if theme_color_override is None:
+        theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    else:
+        theme_color = theme_color_override
     img_size = (1080, 2160)
     img = Image.new("RGB", img_size, color=theme_color)
     draw: ImageDraw.ImageDraw = ImageDraw.Draw(img)

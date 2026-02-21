@@ -61,3 +61,16 @@ uv run python build_lambda_layer.py
 | `"12month"`| 今年     |
 
 指定がない場合は従来どおり、日付に応じてのみ実行される（日曜 / 1日 / 12月30日）。
+
+---
+
+## 画像処理のローカルテスト
+
+画像処理だけを Lambda にデプロイせずに検証したい場合は、ローカルで pytest を実行する。
+
+- **実行:** プロジェクトルートで `uv run pytest tests/test_draw_ranking.py -v`（要 `uv sync --extra dev`）
+- **前提:** `fonts/` に次のフォントを配置すること（main.py の FONT1〜FONT5 と同一）  
+  `azuki.ttf`, `Ronde-B_square.otf`, `851letrogo_007.ttf`, `logotypejp_mp_b_1.1.ttf`, `logotypejp_mp_m_1.1.ttf`
+- **正解画像の初回生成・更新:** 上記フォントを配置したうえで  
+  `uv run python scripts/generate_expected_image.py` を実行すると、  
+  `tests/fixtures/expected_ranking_7day.png` が生成される。レイアウトを変えたあとはこのスクリプトを再実行して正解画像を更新し、コミットする。
