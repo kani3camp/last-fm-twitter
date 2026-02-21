@@ -67,6 +67,8 @@ def resolve_img_path() -> str:
 
 def get_last_fm_tracks():
     global period
+    if period is None:
+        raise RuntimeError("period must be set by pre_main() or lambda_handler() before calling get_last_fm_tracks()")
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "format": "json",

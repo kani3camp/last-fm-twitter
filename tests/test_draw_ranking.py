@@ -45,11 +45,12 @@ def test_draw_ranking_img_matches_expected(fixture_data, tmp_path, monkeypatch, 
         theme_color_override=FIXED_THEME_COLOR,
     )
 
-    expected = Image.open(EXPECTED_IMAGE).convert("RGB")
-    actual = Image.open(out_path).convert("RGB")
-    diff = ImageChops.difference(expected, actual)
-    extrema = diff.getextrema()
-    max_diff = max(max(p) for p in extrema)
+    with Image.open(EXPECTED_IMAGE) as expected, Image.open(out_path) as actual:
+        expected_rgb = expected.convert("RGB")
+        actual_rgb = actual.convert("RGB")
+        diff = ImageChops.difference(expected_rgb, actual_rgb)
+        extrema = diff.getextrema()
+        max_diff = max(max(p) for p in extrema)
     assert max_diff == 0, (
         f"生成画像が正解と一致しません（最大差分: {max_diff}）。"
         "レイアウトを変えた場合は scripts/generate_expected_image.py で正解画像を更新してください。"
