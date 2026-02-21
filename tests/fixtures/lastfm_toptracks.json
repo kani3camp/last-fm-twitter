@@ -1,0 +1,16 @@
+{
+  "toptracks": {
+    "track": [
+      {"name": "Song One", "artist": {"name": "Artist A"}, "playcount": "42"},
+      {"name": "Song Two", "artist": {"name": "Artist B"}, "playcount": "38"},
+      {"name": "Song Three", "artist": {"name": "Artist C"}, "playcount": "35"},
+      {"name": "Song Four", "artist": {"name": "Artist D"}, "playcount": "28"},
+      {"name": "Song Five", "artist": {"name": "Artist E"}, "playcount": "24"},
+      {"name": "Song Six", "artist": {"name": "Artist F"}, "playcount": "20"},
+      {"name": "Song Seven", "artist": {"name": "Artist G"}, "playcount": "18"},
+      {"name": "Song Eight", "artist": {"name": "Artist H"}, "playcount": "15"},
+      {"name": "Song Nine", "artist": {"name": "Artist I"}, "playcount": "12"},
+      {"name": "Song Ten", "artist": {"name": "Artist J"}, "playcount": "10"}
+    ]
+  }
+}

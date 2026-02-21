@@ -12,6 +12,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "boto3-stubs~=1.42.53",
+    "invoke",
+    "pytest",
     "ruff",
 ]
 
@@ -27,6 +30,7 @@ line-length = 120
 target-version = "py313"
 exclude = [
     "archives",
+    "tests",
 ]
 
 [tool.ruff.lint]

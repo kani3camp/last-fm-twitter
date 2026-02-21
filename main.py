@@ -6,6 +6,7 @@ import json
 import os
 import random
 import sys
+import urllib.parse
 import urllib.request
 
 import boto3
@@ -28,9 +29,9 @@ DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 
 S3_BUCKET_NAME = "last-fm-twitter"
 
-global period
-global theme_color
 is_lambda = False
+period = None  # set in pre_main() or lambda_handler()
+theme_color = None  # set in draw_ranking_img()
 
 JST = datetime.timezone(datetime.timedelta(hours=+9), "JST")
 today = datetime.datetime.now(JST).date()
@@ -67,6 +68,8 @@ def resolve_img_path() -> str:
 
 def get_last_fm_tracks():
     global period
+    if period is None:
+        raise RuntimeError("period must be set by pre_main() or lambda_handler() before calling get_last_fm_tracks()")
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "format": "json",
@@ -94,10 +97,13 @@ def initial_message_str():
     return tweet[:-1]
 
 
-def draw_ranking_img(data, img_path: str):
+def draw_ranking_img(data, img_path: str, theme_color_override: tuple[int, int, int] | None = None):
     global period
     global theme_color
-    theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    if theme_color_override is None:
+        theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    else:
+        theme_color = theme_color_override
     img_size = (1080, 2160)
     img = Image.new("RGB", img_size, color=theme_color)
     draw: ImageDraw.ImageDraw = ImageDraw.Draw(img)
