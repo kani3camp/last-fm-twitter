@@ -5,6 +5,7 @@ import datetime
 import json
 import os
 import random
+import urllib.parse
 import urllib.request
 
 import boto3
@@ -32,9 +33,9 @@ FULL_RANKING_IMG_HEIGHT = 2160
 TABLE_MARGIN_TOP = 100
 TABLE_MARGIN_BOTTOM = 50
 
-global period
-global theme_color
 is_lambda = False
+period = None  # set in pre_main() or lambda_handler()
+theme_color = None  # set in draw_ranking_img()
 
 JST = datetime.timezone(datetime.timedelta(hours=+9), "JST")
 today = datetime.datetime.now(JST).date()
@@ -78,6 +79,8 @@ def resolve_img_path() -> str:
 
 def get_last_fm_tracks():
     global period
+    if period is None:
+        raise RuntimeError("period must be set by pre_main() or lambda_handler() before calling get_last_fm_tracks()")
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "format": "json",
@@ -113,7 +116,7 @@ def select_ranked_tracks(data):
     return [track for track in tracks if int(track["playcount"]) >= 1][:MAX_RANKED_TRACKS]
 
 
-def draw_ranking_img(data, img_path: str):
+def draw_ranking_img(data, img_path: str, theme_color_override: tuple[int, int, int] | None = None):
     global period
     global theme_color
 
@@ -126,7 +129,10 @@ def draw_ranking_img(data, img_path: str):
         for font_path in [FONT1, FONT2, FONT3, FONT4, FONT5]:
             download_s3_ttf(bucket_name=S3_BUCKET_NAME, file_path=font_path)
 
-    theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    if theme_color_override is None:
+        theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    else:
+        theme_color = theme_color_override
     # 10曲時の行の高さを維持し、曲数が少ない場合は画像を縦に縮める。
     table_height = (
         (FULL_RANKING_IMG_HEIGHT - TABLE_MARGIN_TOP - TABLE_MARGIN_BOTTOM)
