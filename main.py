@@ -11,7 +11,7 @@ import requests
 # .env ファイルをロードして環境変数へ反映
 from dotenv import load_dotenv
 
-from ranking_image import random_background, render_ranking
+from ranking_image import period_labels, random_background, render_ranking
 
 load_dotenv()
 
@@ -26,7 +26,11 @@ period = None
 is_lambda = False
 
 JST = datetime.timezone(datetime.timedelta(hours=+9), "JST")
-today = datetime.datetime.now(JST).date()
+today = None
+
+
+def current_date():
+    return datetime.datetime.now(JST).date()
 
 
 class Period:
@@ -76,15 +80,8 @@ def get_last_fm_tracks():
 
 
 def initial_message_str():
-    tweet = "そららPが"
-    if period == Period.SEVEN_DAYS:
-        tweet += "今週"
-    elif period == Period.ONE_MONTH:
-        tweet += "先月"
-    elif period == Period.TWELVE_MONTH:
-        tweet += "今年"
-    tweet += "聞いた曲ランキング\n"
-    return tweet[:-1]
+    title = period_labels(period, today or current_date())[1]
+    return f"そららPが{title}ランキング"
 
 
 def select_ranked_tracks(data):
@@ -96,7 +93,9 @@ def select_ranked_tracks(data):
 
 
 def draw_ranking_img(data, img_path: str):
-    render_ranking(select_ranked_tracks(data), img_path, period, today, background=random_background())
+    render_ranking(
+        select_ranked_tracks(data), img_path, period, today or current_date(), background=random_background()
+    )
 
 
 def send_message_to_discord(message, webhook_url):
@@ -112,8 +111,9 @@ def send_image_to_discord(message, webhook_url, file_path):
     print(f"Response: {response}")
 
 
-def pre_main():
-    global period
+def pre_main(run_day=None):
+    global period, today
+    today = run_day if run_day is not None else current_date()
     weekday = today.weekday()
     day = today.day
     month = today.month
@@ -148,8 +148,9 @@ PERIOD_BY_KEY = {
 
 
 def lambda_handler(event, context):
-    global is_lambda, period
+    global is_lambda, period, today
     is_lambda = True
+    today = current_date()
 
     # テスト用: イベントで period を指定されていればそれで実行
     if event and (key := event.get("period")):
@@ -161,4 +162,4 @@ def lambda_handler(event, context):
             return
         raise ValueError(f"period must be one of: {list(PERIOD_BY_KEY)}")
 
-    pre_main()
+    pre_main(today)

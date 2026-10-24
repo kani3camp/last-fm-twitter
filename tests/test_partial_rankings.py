@@ -46,7 +46,7 @@ class PartialRankingTests(unittest.TestCase):
             main.main()
 
         send_text.assert_called_once_with(
-            "そららPが今週聞いた曲ランキング\n再生履歴が0件のため、ランキング画像は作成しませんでした。",
+            "そららPが過去7日間に聴いた曲ランキング\n再生履歴が0件のため、ランキング画像は作成しませんでした。",
             main.DISCORD_WEBHOOK_URL,
         )
         send_image.assert_not_called()
@@ -84,7 +84,7 @@ class PartialRankingTests(unittest.TestCase):
 
                 draw_image.assert_called_once_with(data, img_path=main.LOCAL_IMG_PATH)
                 send_image.assert_called_once_with(
-                    "そららPが今週聞いた曲ランキング", main.DISCORD_WEBHOOK_URL, main.LOCAL_IMG_PATH
+                    "そららPが過去7日間に聴いた曲ランキング", main.DISCORD_WEBHOOK_URL, main.LOCAL_IMG_PATH
                 )
                 send_text.assert_not_called()
 

@@ -1,0 +1,35 @@
+name: Validate
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  linux-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: '3.13'
+      - run: uv sync --locked --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run python -m unittest discover -s tests -v
+      - run: uv run python scripts/build_function.py
+      - run: uv run python build_lambda_layer.py
+      - name: Offline Lambda smoke test (128 MiB, x86_64)
+        run: >-
+          docker run --rm --platform linux/amd64 --network none
+          --memory 128m --memory-swap 128m --cpus 1 --read-only
+          --tmpfs /tmp:rw,size=64m
+          --volume "$GITHUB_WORKSPACE:/var/task:ro"
+          -e PYTHONPATH=/var/task/layer/python/lib/python3.13/site-packages
+          --entrypoint /var/lang/bin/python3.13
+          public.ecr.aws/lambda/python@sha256:e0237850eecd760896365e768bac1526ea01098e325fa590e5bc735b26d5dbb9
+          scripts/profile_renderer.py

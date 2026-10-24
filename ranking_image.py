@@ -1,6 +1,5 @@
 """Offline renderer for the 1000 × 2000 Chart design (no API calls or credentials)."""
 
-import datetime
 import math
 import random
 import re
@@ -18,7 +17,13 @@ MUTED = "#4A5468"
 PURPLE = "#6D35D6"
 ORANGE = "#F0561A"
 FONTS = Path(__file__).resolve().parent / "assets" / "fonts"
-SCALE = 3
+SCALE = 2
+
+PERIOD_LABELS = {
+    "7day": ("PAST 7 DAYS", "過去7日間に聴いた曲"),
+    "1month": ("PAST 1 MONTH", "過去1か月に聴いた曲"),
+    "12month": ("PAST 12 MONTHS", "過去12か月に聴いた曲"),
+}
 
 
 def random_background():
@@ -97,25 +102,12 @@ def font(size, weight=900, latin=False):
 
 
 def period_labels(period, day):
-    """Week dates follow the design; longer periods show their retrieval date.
-
-    getTopTracks does not return exact interval endpoints. Do not invent calendar
-    month/year boundaries for its 1month/12month results.
-    """
-    if period == "7day":
-        start = day - datetime.timedelta(days=6)
-        label, title, winner = "WEEKLY", "今週聴いた曲", "NO.1 THIS WEEK"
-    elif period in ("1month", "12month"):
-        label, title, winner = (
-            ("MONTHLY", "先月聴いた曲", "NO.1 THIS MONTH")
-            if period == "1month"
-            else ("YEARLY", "今年聴いた曲", "NO.1 THIS YEAR")
-        )
-        return f"{label} TOP 10", title, winner, f"AS OF {day:%Y.%m.%d}"
-    else:
-        raise ValueError(f"Unsupported period: {period}")
-    end_format = "%m.%d" if start.year == day.year else "%Y.%m.%d"
-    return f"{label} TOP 10", title, winner, f"{start:%Y.%m.%d} — {day.strftime(end_format)}"
+    """Name the API period and retrieval date without inventing interval endpoints."""
+    try:
+        label, title = PERIOD_LABELS[period]
+    except KeyError as error:
+        raise ValueError(f"Unsupported period: {period}") from error
+    return f"{label} · TOP 10", title, f"NO.1 · {label}", f"AS OF {day:%Y.%m.%d}"
 
 
 def single_line(text):
@@ -292,7 +284,6 @@ def render_ranking(tracks, path, period, day, username="SoraraP", *, background=
     heading, title, winner, dates = period_labels(period, day)
     canvas = Canvas(background)
     heading_ink = "#7B3FE4" if contrast_ratio("#7B3FE4", background) >= 4.5 else canvas.outer_ink
-    canvas.text(heading, 56, 62.72, 24, heading_ink, 800, True, spacing=1.92)
     date_size = 22
     # Cross-year date ranges must also stay clear of the heading.
     while font(date_size, 600, True).getlength(dates) / SCALE + 36 > 450:
@@ -300,6 +291,21 @@ def render_ranking(tracks, path, period, day, username="SoraraP", *, background=
     date_width = font(date_size, 600, True).getlength(dates) / SCALE + 36
     canvas.box(944 - date_width, 56, date_width, 43.2, "#7B3FE4", 22)
     canvas.text(dates, 962 - date_width, 64, date_size, "white", 600, True)
+    heading_size = 24
+    while (
+        font(heading_size, 800, True).getlength(heading) / SCALE + len(heading) * heading_size * 0.08 > 860 - date_width
+    ):
+        heading_size -= 1
+    canvas.text(
+        heading,
+        56,
+        56 + (43.2 - heading_size * 1.24) / 2,
+        heading_size,
+        heading_ink,
+        800,
+        True,
+        spacing=heading_size * 0.08,
+    )
     canvas.text("そららPが", 56, 117.2, 80, color=canvas.outer_ink, line_height=92)
     highlight_width = font(80).getlength(title) / SCALE + 8
     highlight = "#FFC9AE" if contrast_ratio(canvas.outer_ink, "#FFC9AE") >= 4.5 else "#8B3518"
@@ -392,4 +398,9 @@ def render_ranking(tracks, path, period, day, username="SoraraP", *, background=
     profile = f"last.fm/user/{username}"
     canvas.text(profile, 944 - font(22, 700).getlength(profile) / SCALE, 1928, 22, color=canvas.outer_ink, weight=700)
     image = canvas.image.resize(SIZE, Image.Resampling.LANCZOS)
-    image.save(path, **({"quality": 95, "subsampling": 0} if str(path).lower().endswith((".jpg", ".jpeg")) else {}))
+    del canvas.draw
+    canvas.image.close()
+    try:
+        image.save(path, **({"quality": 95, "subsampling": 0} if str(path).lower().endswith((".jpg", ".jpeg")) else {}))
+    finally:
+        image.close()

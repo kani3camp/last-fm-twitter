@@ -41,7 +41,7 @@ def install_dependencies():
         print("Error: Failed to export locked runtime dependencies")
         print(requirements.stderr)
         return False
-    # Lambda runs on Amazon Linux 2; use --python-platform linux to get Linux wheels
+    # Python 3.13 Lambda runs on Amazon Linux 2023; request Linux wheels for its native extensions.
     # (Pillow etc. have C extensions that must match the runtime OS)
     result = subprocess.run(
         [
