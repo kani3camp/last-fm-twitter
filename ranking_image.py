@@ -224,13 +224,24 @@ class Canvas:
         distance = 0
         for p1, p2 in zip(points, points[1:], strict=False):
             length = math.dist(p1, p2)
-            steps = max(1, math.ceil(length * SCALE))
-            for step in range(steps):
-                if (distance + length * step / steps) % 12 < 6:
-                    t = step / steps
-                    px = (p1[0] + (p2[0] - p1[0]) * t) * SCALE
-                    py = (p1[1] + (p2[1] - p1[1]) * t) * SCALE
-                    self.draw.ellipse((px - SCALE, py - SCALE, px + SCALE, py + SCALE), fill=outline)
+            position = 0
+            while position < length:
+                phase = (distance + position) % 8
+                step = min(length - position, (4.8 if phase < 4.8 else 8) - phase)
+                if step < 1e-6:
+                    position += 1e-6
+                    continue
+                if phase < 4.8:
+                    ends = [
+                        (p1[0] + (p2[0] - p1[0]) * t / length, p1[1] + (p2[1] - p1[1]) * t / length)
+                        for t in (position, position + step)
+                    ]
+                    self.draw.line(
+                        [(round(px * SCALE), round(py * SCALE)) for px, py in ends],
+                        fill=outline,
+                        width=round(1.6 * SCALE),
+                    )
+                position += step
             distance += length
 
         self.centered(

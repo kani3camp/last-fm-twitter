@@ -13,9 +13,13 @@ uv run python scripts/preview_ranking.py --count 6 --output preview-6.png
 uv run python scripts/preview_ranking.py --count 1 --output preview-1.png
 uv run python scripts/preview_ranking.py --period 1month --date 2026-08-01 --output preview-month.png
 uv run python scripts/preview_ranking.py --period 12month --date 2026-12-30 --output preview-year.png
+uv run python scripts/compare_design.py --count 10 --output preview-comparison-10.png
+uv run python scripts/compare_design.py --count 6 --output preview-comparison-6.png
 ```
 
 このプレビューは固定 JSON を読み取るだけで、`.env` の読み込み、Last.fm / AWS へのアクセス、Discord 投稿を行いません。`--data path/to/fixture.json` で Last.fm 形式の別データも使用できます。
+
+`compare_design.py` は参照・生成・強調差分を並べたPNGと平均誤差を出力し、比較基準を超えると非ゼロで終了します。参照の仮ユーザー名に揃えて比較し、通常の投稿画像では実ユーザー名 `SoraraP` を表示します。
 
 ## 画像の仕様
 
