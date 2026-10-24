@@ -11,7 +11,7 @@ import requests
 # .env ファイルをロードして環境変数へ反映
 from dotenv import load_dotenv
 
-from ranking_image import render_ranking
+from ranking_image import random_background, render_ranking
 
 load_dotenv()
 
@@ -96,7 +96,7 @@ def select_ranked_tracks(data):
 
 
 def draw_ranking_img(data, img_path: str):
-    render_ranking(select_ranked_tracks(data), img_path, period, today)
+    render_ranking(select_ranked_tracks(data), img_path, period, today, background=random_background())
 
 
 def send_message_to_discord(message, webhook_url):

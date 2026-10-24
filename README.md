@@ -11,6 +11,8 @@ uv sync --extra dev
 uv run python scripts/preview_ranking.py --output preview.png
 uv run python scripts/preview_ranking.py --count 6 --output preview-6.png
 uv run python scripts/preview_ranking.py --count 1 --output preview-1.png
+uv run python scripts/preview_ranking.py --random-background --output preview-random.png
+uv run python scripts/preview_ranking.py --background '#202040' --output preview-dark.png
 uv run python scripts/preview_ranking.py --period 1month --date 2026-08-01 --output preview-month.png
 uv run python scripts/preview_ranking.py --period 12month --date 2026-12-30 --output preview-year.png
 uv run python scripts/compare_design.py --count 10 --output preview-comparison-10.png
@@ -29,6 +31,7 @@ uv run python scripts/compare_design.py --count 6 --output preview-comparison-6.
 - 曲名の `feat.` は加工せず保持します。1〜3位は最大2行、4〜10位とアーティストは1行に収め、収まらない文字は「…」で省略します。
 - API の期間指定（7日／1か月／12か月）と既存の投稿文は維持します。週次の日付は参照に合わせ実行日を含む7日間を表示し、月次／年次は `AS OF` と取得日を表示します。API が返さない正確な月・年の開始日は推測しません。
 - フォントとライセンスは `assets/fonts/` に同梱します。画像生成時にフォントをダウンロードする必要はありません。
+- 通常の投稿画像は従来どおり、生成のたびにRGB各値0〜255から背景色をランダムに選びます。背景上の見出し・出典の文字色は読みやすさに応じて調整し、白いカード内の配色は維持します。プレビュー／参照比較は水色固定が既定で、`--random-background` または `--background` で色を変えて確認できます。
 
 ## 検証
 

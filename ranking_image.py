@@ -2,13 +2,14 @@
 
 import datetime
 import math
+import random
 import re
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
 
 import uharfbuzz as hb
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 SIZE = (1000, 2000)
 BACKGROUND = "#CDE9FF"
@@ -18,6 +19,29 @@ PURPLE = "#6D35D6"
 ORANGE = "#F0561A"
 FONTS = Path(__file__).resolve().parent / "assets" / "fonts"
 SCALE = 3
+
+
+def random_background():
+    """Preserve the original independent 0–255 RGB draws for each posted image."""
+    return tuple(random.randint(0, 255) for _ in range(3))
+
+
+def contrast_ratio(first, second):
+    def luminance(color):
+        rgb = ImageColor.getrgb(color) if isinstance(color, str) else color
+        channels = [value / 255 for value in rgb]
+        linear = [value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4 for value in channels]
+        return sum(value * weight for value, weight in zip(linear, (0.2126, 0.7152, 0.0722), strict=True))
+
+    light, dark = sorted((luminance(first), luminance(second)), reverse=True)
+    return (light + 0.05) / (dark + 0.05)
+
+
+def background_ink(background):
+    for candidate in (INK, "white", "black"):
+        if contrast_ratio(candidate, background) >= 4.5:
+            return candidate
+    raise ValueError("Cannot choose readable background text")
 
 
 @lru_cache(maxsize=3)
@@ -136,8 +160,10 @@ def wrap_title(text, face, width, max_lines=2):
 
 
 class Canvas:
-    def __init__(self):
-        self.image = Image.new("RGB", tuple(value * SCALE for value in SIZE), BACKGROUND)
+    def __init__(self, background=BACKGROUND):
+        self.background = ImageColor.getrgb(background) if isinstance(background, str) else background
+        self.outer_ink = background_ink(self.background)
+        self.image = Image.new("RGB", tuple(value * SCALE for value in SIZE), self.background)
         self.draw = ImageDraw.Draw(self.image)
 
     def box(self, x, y, width, height, color, radius=0):
@@ -207,7 +233,11 @@ class Canvas:
 
     def placeholder(self, rank, y, height, large=False):
         # Dashed, rounded empty slots are intentional in the short-week reference.
-        outline = "#9FB7CF"
+        ink = ImageColor.getrgb(self.outer_ink)
+        outline = tuple(
+            int(foreground * 0.25 + background * 0.75 + 0.5)
+            for foreground, background in zip(ink, self.background, strict=True)
+        )
         radius = 22 if large else 18
         points = []
         # Walk the rounded perimeter so dashes also appear on the vertical sides.
@@ -255,13 +285,14 @@ class Canvas:
         )
 
 
-def render_ranking(tracks, path, period, day, username="SoraraP"):
+def render_ranking(tracks, path, period, day, username="SoraraP", *, background=BACKGROUND):
     if not tracks:
         raise ValueError("ランキング画像に表示できる再生履歴がありません")
     tracks = tracks[:10]
     heading, title, winner, dates = period_labels(period, day)
-    canvas = Canvas()
-    canvas.text(heading, 56, 62.72, 24, "#7B3FE4", 800, True, spacing=1.92)
+    canvas = Canvas(background)
+    heading_ink = "#7B3FE4" if contrast_ratio("#7B3FE4", background) >= 4.5 else canvas.outer_ink
+    canvas.text(heading, 56, 62.72, 24, heading_ink, 800, True, spacing=1.92)
     date_size = 22
     # Cross-year date ranges must also stay clear of the heading.
     while font(date_size, 600, True).getlength(dates) / SCALE + 36 > 450:
@@ -269,10 +300,11 @@ def render_ranking(tracks, path, period, day, username="SoraraP"):
     date_width = font(date_size, 600, True).getlength(dates) / SCALE + 36
     canvas.box(944 - date_width, 56, date_width, 43.2, "#7B3FE4", 22)
     canvas.text(dates, 962 - date_width, 64, date_size, "white", 600, True)
-    canvas.text("そららPが", 56, 117.2, 80, line_height=92)
+    canvas.text("そららPが", 56, 117.2, 80, color=canvas.outer_ink, line_height=92)
     highlight_width = font(80).getlength(title) / SCALE + 8
-    canvas.box(56, 197.2 + 116 * 0.58, highlight_width, 116 * 0.34, "#FFC9AE")
-    canvas.text(title, 60, 209.2, 80, line_height=92)
+    highlight = "#FFC9AE" if contrast_ratio(canvas.outer_ink, "#FFC9AE") >= 4.5 else "#8B3518"
+    canvas.box(56, 197.2 + 116 * 0.58, highlight_width, 116 * 0.34, highlight)
+    canvas.text(title, 60, 209.2, 80, color=canvas.outer_ink, line_height=92)
     x = 56
     stats = [
         (sum(int(t["playcount"]) for t in tracks), "回再生"),
@@ -356,8 +388,8 @@ def render_ranking(tracks, path, period, day, username="SoraraP"):
             canvas.fitted(track["name"], 170, text_y, text_width, 32, line_height=40)
             canvas.fitted(track["artist"]["name"], 170, text_y + 42, text_width, 22, color=MUTED, weight=700)
         y += height + 10
-    canvas.text("Data: Last.fm", 56, 1928, 22, weight=700)
+    canvas.text("Data: Last.fm", 56, 1928, 22, color=canvas.outer_ink, weight=700)
     profile = f"last.fm/user/{username}"
-    canvas.text(profile, 944 - font(22, 700).getlength(profile) / SCALE, 1928, 22, weight=700)
+    canvas.text(profile, 944 - font(22, 700).getlength(profile) / SCALE, 1928, 22, color=canvas.outer_ink, weight=700)
     image = canvas.image.resize(SIZE, Image.Resampling.LANCZOS)
     image.save(path, **({"quality": 95, "subsampling": 0} if str(path).lower().endswith((".jpg", ".jpeg")) else {}))

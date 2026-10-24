@@ -113,6 +113,20 @@ class PartialRankingTests(unittest.TestCase):
                     self.assertEqual(image.size, (1000, 2000))
                     self.assertEqual(image.format, "JPEG")
 
+    def test_every_period_uses_a_fresh_random_background_for_each_image(self):
+        colors = [(0, 255, 128), (255, 0, 64)]
+        for period in (main.Period.SEVEN_DAYS, main.Period.ONE_MONTH, main.Period.TWELVE_MONTH):
+            with self.subTest(period=period), tempfile.TemporaryDirectory() as temp:
+                with (
+                    patch.object(main, "period", period),
+                    patch.object(main, "random_background", side_effect=colors),
+                ):
+                    for index, color in enumerate(colors):
+                        output = Path(temp) / f"ranking-{index}.png"
+                        main.draw_ranking_img(make_data(6), str(output))
+                        with Image.open(output) as image:
+                            self.assertEqual(image.getpixel((0, 0)), color)
+
     def test_zero_tracks_cannot_be_rendered_directly(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "ranking.jpg"

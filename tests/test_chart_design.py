@@ -13,9 +13,11 @@ from PIL import Image, ImageChops, ImageStat
 from ranking_image import (
     SCALE,
     Canvas,
+    contrast_ratio,
     ellipsize,
     font,
     period_labels,
+    random_background,
     render_ranking,
     wrap_title,
 )
@@ -30,6 +32,36 @@ def tracks():
 
 
 class ChartDesignTests(unittest.TestCase):
+    def test_random_background_preserves_the_full_rgb_range(self):
+        with patch("ranking_image.random.randint", side_effect=(0, 255, 128)) as rng:
+            self.assertEqual(random_background(), (0, 255, 128))
+        self.assertEqual([call.args for call in rng.call_args_list], [(0, 255)] * 3)
+
+    def test_background_text_remains_readable_and_white_cards_keep_their_colors(self):
+        original = Canvas.text
+        for color in ("#000000", "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#808080"):
+            calls = []
+
+            def record(canvas, value, x, y, size, *args, _calls=calls, **kwargs):
+                _calls.append((value, y, kwargs.get("color", args[0] if args else "#14213D")))
+                return original(canvas, value, x, y, size, *args, **kwargs)
+
+            with self.subTest(background=color), tempfile.TemporaryDirectory() as temp:
+                output = Path(temp) / "ranking.png"
+                with patch.object(Canvas, "text", record):
+                    render_ranking(tracks()[:6], output, "7day", DAY, background=color)
+                for text, y, ink in calls:
+                    if text in ("WEEKLY TOP 10", "そららPが", "今週聴いた曲", "Data: Last.fm") or y == 1928:
+                        self.assertGreaterEqual(contrast_ratio(ink, color), 4.5)
+                with Image.open(output) as actual, Image.open(FIXTURES / "chart_6.png") as expected:
+                    self.assertEqual(actual.getpixel((0, 0)), tuple(bytes.fromhex(color[1:])))
+                    # This crop is wholly inside the white #1 card, including its content.
+                    self.assertIsNone(
+                        ImageChops.difference(
+                            actual.crop((100, 440, 900, 790)), expected.crop((100, 440, 900, 790))
+                        ).getbbox()
+                    )
+
     def test_reference_artboards_match_with_a_small_rasterization_tolerance(self):
         for count in (10, 6):
             with self.subTest(count=count), tempfile.TemporaryDirectory() as temp:
