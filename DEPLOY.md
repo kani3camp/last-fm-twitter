@@ -10,6 +10,8 @@ uv run python build_lambda_layer.py
 
 → `layer.zip` が生成される。**Lambda は Linux で動くため、`--python-platform linux` で Linux 用のパッケージ（Pillow の C 拡張など）を取得している。** Windows でビルドしてもそのまま Lambda で使える。
 
+Chart 画像への移行では文字組み用の `uharfbuzz` を追加しているため、関数コードより先にこの新しいレイヤーを用意してください。従来のレイヤーのまま関数ZIPだけを更新すると、依存パッケージが不足します。
+
 ## 2. AWS Lambda レイヤーを更新
 
 1. **AWS コンソール** → **Lambda** → **レイヤー**

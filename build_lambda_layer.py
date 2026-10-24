@@ -47,6 +47,7 @@ def install_dependencies():
             "linux",
             "boto3",
             "pillow",
+            "uharfbuzz",
             "requests",
             "python-dotenv",
             "--no-compile",

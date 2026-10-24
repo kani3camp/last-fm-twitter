@@ -37,6 +37,8 @@ uv run python scripts/build_function.py
 
 10曲／6曲の画像回帰テストは `tests/fixtures/chart_10.png` と `chart_6.png` を比較します。デザイン変更で期待画像を更新する場合は、プレビューを確認したうえで以下を実行してください。通常のテストは期待画像を更新しません。
 
+`reference_chart_10.png` と `reference_chart_6.png` は参照アートボードを1000×2000で書き出した原本です。こちらは書き換えず、ブラウザーとPillowの文字輪郭の描画差を許容した比較（RGB各チャンネルの平均誤差2.2/255未満）にも使用します。空枠の位置・バーの比率・文字の収まりは別のテストで検証します。文字間隔は HarfBuzz で計算し、Windows／Linuxで共通にしています。
+
 ```sh
 uv run python scripts/preview_ranking.py --output tests/fixtures/chart_10.png
 uv run python scripts/preview_ranking.py --count 6 --output tests/fixtures/chart_6.png

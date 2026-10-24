@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageStat
 
 from ranking_image import (
     SCALE,
@@ -30,6 +30,38 @@ def tracks():
 
 
 class ChartDesignTests(unittest.TestCase):
+    def test_reference_artboards_match_with_a_small_rasterization_tolerance(self):
+        for count in (10, 6):
+            with self.subTest(count=count), tempfile.TemporaryDirectory() as temp:
+                output = Path(temp) / "ranking.png"
+                render_ranking(tracks()[:count], output, "7day", DAY, username="[USERNAME]")
+                with Image.open(output) as actual, Image.open(FIXTURES / f"reference_chart_{count}.png") as reference:
+                    difference = ImageChops.difference(actual, reference.convert("RGB"))
+                    # Chromium and FreeType rasterize glyph edges differently. Keep the
+                    # mean error below 0.87% per channel, alongside semantic geometry tests.
+                    self.assertLess(max(ImageStat.Stat(difference).mean), 2.2)
+
+    def test_date_badge_uses_the_reference_kerning(self):
+        self.assertAlmostEqual(font(22, 600, True).getlength("2026.07.20 — 07.26") / SCALE, 272.9625, delta=0.1)
+
+    def test_one_percent_bar_does_not_overstate_its_share(self):
+        canvas = Canvas()
+        canvas.bar(10, 10, 110, 8, 0.01)
+        pixels = [canvas.image.getpixel((x, 14 * SCALE)) for x in range(10 * SCALE, 120 * SCALE)]
+        filled = sum(pixel == (109, 53, 214) for pixel in pixels)
+        self.assertLessEqual(filled, 4)  # 1.1 logical pixels at 3×, with subpixel rounding.
+        self.assertGreater(filled, 0)
+
+    def test_six_track_empty_slots_match_reference_flex_positions(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(Canvas, "placeholder", autospec=True) as empty:
+            render_ranking(tracks()[:6], Path(temp) / "ranking.png", "7day", DAY)
+        # Measured from the supplied ChartShort.dc.html's rendered artboard.
+        expected = [(7, 1503.6875, 91.5875), (8, 1605.275, 91.575), (9, 1706.85, 91.575), (10, 1808.425, 91.575)]
+        for call, (rank, y, height) in zip(empty.call_args_list, expected, strict=True):
+            self.assertEqual(call.args[1], rank)
+            self.assertAlmostEqual(call.args[2], y, delta=0.04)
+            self.assertAlmostEqual(call.args[3], height, delta=0.04)
+
     def test_ten_and_six_track_designs_match_reviewed_images(self):
         for count in (10, 6):
             with self.subTest(count=count), tempfile.TemporaryDirectory() as temp:

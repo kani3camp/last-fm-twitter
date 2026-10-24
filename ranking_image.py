@@ -3,9 +3,11 @@
 import datetime
 import math
 import re
+import unicodedata
 from functools import lru_cache
 from pathlib import Path
 
+import uharfbuzz as hb
 from PIL import Image, ImageDraw, ImageFont
 
 SIZE = (1000, 2000)
@@ -18,14 +20,56 @@ FONTS = Path(__file__).resolve().parent / "assets" / "fonts"
 SCALE = 3
 
 
+@lru_cache(maxsize=3)
+def font_face(path):
+    return hb.Face(path.read_bytes())
+
+
+class TextFont:
+    """Use the same shaping metrics on Windows and Linux, independent of Pillow's optional Raqm."""
+
+    def __init__(self, path, size, weight):
+        self.pillow = ImageFont.truetype(str(path), round(size * SCALE), layout_engine=ImageFont.Layout.BASIC)
+        self.shaper = hb.Font(font_face(path))
+        self.shaper.scale = (round(size * SCALE * 64), round(size * SCALE * 64))
+        if path.name == "Unbounded.ttf":
+            self.pillow.set_variation_by_axes([weight])
+            self.shaper.set_variations({"wght": weight})
+        self.shape = lru_cache(maxsize=256)(self._shape)
+
+    def _shape(self, value):
+        value = unicodedata.normalize("NFC", value)
+        buffer = hb.Buffer()
+        buffer.add_codepoints([ord(char) for char in value])
+        buffer.guess_segment_properties()
+        hb.shape(self.shaper, buffer, {"liga": False, "clig": False})
+        clusters = sorted({info.cluster for info in buffer.glyph_infos}) + [len(value)]
+        ends = dict(zip(clusters, clusters[1:], strict=False))
+        glyphs, seen, cursor = [], set(), 0
+        for info, position in zip(buffer.glyph_infos, buffer.glyph_positions, strict=True):
+            if info.cluster not in seen:
+                glyphs.append(
+                    (
+                        value[info.cluster : ends[info.cluster]],
+                        (cursor + position.x_offset) / 64,
+                        position.y_offset / 64,
+                    )
+                )
+                seen.add(info.cluster)
+            cursor += position.x_advance
+        return glyphs, cursor / 64
+
+    def getlength(self, value):
+        return self.shape(value)[1]
+
+    def getmetrics(self):
+        return self.pillow.getmetrics()
+
+
 @lru_cache(maxsize=64)
 def font(size, weight=900, latin=False):
     path = FONTS / ("Unbounded.ttf" if latin else f"ZenMaruGothic-{'Black' if weight == 900 else 'Bold'}.ttf")
-    # BASIC is explicit so Windows and Lambda do not silently select different shapers.
-    result = ImageFont.truetype(str(path), round(size * SCALE), layout_engine=ImageFont.Layout.BASIC)
-    if latin:
-        result.set_variation_by_axes([weight])
-    return result
+    return TextFont(path, size, weight)
 
 
 def period_labels(period, day):
@@ -97,6 +141,8 @@ class Canvas:
         self.draw = ImageDraw.Draw(self.image)
 
     def box(self, x, y, width, height, color, radius=0):
+        if round((x + width) * SCALE) <= round(x * SCALE) or height <= 0:
+            return
         self.draw.rounded_rectangle(
             (round(x * SCALE), round(y * SCALE), round((x + width) * SCALE) - 1, round((y + height) * SCALE) - 1),
             radius=round(radius * SCALE),
@@ -109,12 +155,15 @@ class Canvas:
         ascent, descent = face.getmetrics()
         height = line_height if line_height is not None else (1.24 if latin else 1.46) * size
         baseline = y * SCALE + (height * SCALE - ascent - descent) / 2 + ascent
-        if not spacing:
-            self.draw.text((x * SCALE, baseline), value, font=face, fill=color, anchor="ls")
-            return
-        for char in value:
-            self.draw.text((x * SCALE, baseline), char, font=face, fill=color, anchor="ls")
-            x += face.getlength(char) / SCALE + spacing
+        glyphs, _ = face.shape(value)
+        for index, (text, dx, dy) in enumerate(glyphs):
+            self.draw.text(
+                (x * SCALE + dx + index * spacing * SCALE, baseline - dy),
+                text,
+                font=face.pillow,
+                fill=color,
+                anchor="ls",
+            )
 
     def fitted(self, value, x, y, width, size, **kwargs):
         self.text(ellipsize(value, font(size, kwargs.get("weight", 900)), width), x, y, size, **kwargs)
@@ -130,7 +179,8 @@ class Canvas:
     def bar(self, x, y, width, height, fraction, hero=False):
         self.box(x, y, width, height, "#FFE3D6" if hero else "#EADFFF", height / 2)
         if fraction > 0:
-            self.box(x, y, max(height, width * min(fraction, 1)), height, ORANGE if hero else PURPLE, height / 2)
+            filled_width = width * min(fraction, 1)
+            self.box(x, y, filled_width, height, ORANGE if hero else PURPLE, min(height, filled_width) / 2)
 
     def badge(self, count, right, y, hero=False, large=False):
         size = 46 if hero else 34 if large else 28
@@ -274,10 +324,15 @@ def render_ranking(tracks, path, period, day, username="SoraraP"):
             )
         y += 180
     y += 12  # 28px gap after the top-three group (rather than its internal 16px gap).
-    row_height = (1900 - y - 60) / 7
+    # In the reference's flex layout, dashed borders add 3.2px to an empty slot's
+    # outer height. Deduct that space before distributing the shared row content.
+    empty_border_height = 3.2
+    empty_slots = 10 - max(3, len(tracks))
+    row_height = (1900 - y - 60 - empty_slots * empty_border_height) / 7
     for rank in range(4, 11):
+        height = row_height + (empty_border_height if rank > len(tracks) else 0)
         if rank > len(tracks):
-            canvas.placeholder(rank, y, row_height)
+            canvas.placeholder(rank, y, height)
         else:
             track = tracks[rank - 1]
             count = int(track["playcount"])
@@ -289,7 +344,7 @@ def render_ranking(tracks, path, period, day, username="SoraraP"):
             text_y = y + (row_height - 74) / 2
             canvas.fitted(track["name"], 170, text_y, text_width, 32, line_height=40)
             canvas.fitted(track["artist"]["name"], 170, text_y + 42, text_width, 22, color=MUTED, weight=700)
-        y += row_height + 10
+        y += height + 10
     canvas.text("Data: Last.fm", 56, 1928, 22, weight=700)
     profile = f"last.fm/user/{username}"
     canvas.text(profile, 944 - font(22, 700).getlength(profile) / SCALE, 1928, 22, weight=700)
