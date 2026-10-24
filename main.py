@@ -5,7 +5,6 @@ import datetime
 import json
 import os
 import random
-import sys
 import urllib.request
 
 import boto3
@@ -27,6 +26,11 @@ LASTFM_API_KEY = os.environ["LASTFM_API_KEY"]
 DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 
 S3_BUCKET_NAME = "last-fm-twitter"
+
+MAX_RANKED_TRACKS = 10
+FULL_RANKING_IMG_HEIGHT = 2160
+TABLE_MARGIN_TOP = 100
+TABLE_MARGIN_BOTTOM = 50
 
 global period
 global theme_color
@@ -51,11 +55,18 @@ FONT5 = "fonts/logotypejp_mp_m_1.1.ttf"  # https://logotype.jp/corporate-logo-fo
 
 def main():
     data = get_last_fm_tracks()
-    # ツイートする文字列
     message = initial_message_str()
-    draw_ranking_img(data, img_path=resolve_img_path())
 
-    send_image_to_discord(message, DISCORD_WEBHOOK_URL, resolve_img_path())
+    if not select_ranked_tracks(data):
+        send_message_to_discord(
+            f"{message}\n再生履歴が0件のため、ランキング画像は作成しませんでした。",
+            DISCORD_WEBHOOK_URL,
+        )
+        return
+
+    img_path = resolve_img_path()
+    draw_ranking_img(data, img_path=img_path)
+    send_image_to_discord(message, DISCORD_WEBHOOK_URL, img_path)
 
 
 def resolve_img_path() -> str:
@@ -94,11 +105,35 @@ def initial_message_str():
     return tweet[:-1]
 
 
+def select_ranked_tracks(data):
+    """再生回数が1回以上の曲を、最大10曲までランキング対象にする。"""
+    tracks = data["toptracks"].get("track") or []
+    if isinstance(tracks, dict):
+        tracks = [tracks]
+    return [track for track in tracks if int(track["playcount"]) >= 1][:MAX_RANKED_TRACKS]
+
+
 def draw_ranking_img(data, img_path: str):
     global period
     global theme_color
+
+    tracks = select_ranked_tracks(data)
+    if not tracks:
+        raise ValueError("ランキング画像に表示できる再生履歴がありません")
+
+    if is_lambda:
+        os.makedirs("/tmp/fonts/", exist_ok=True)
+        for font_path in [FONT1, FONT2, FONT3, FONT4, FONT5]:
+            download_s3_ttf(bucket_name=S3_BUCKET_NAME, file_path=font_path)
+
     theme_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-    img_size = (1080, 2160)
+    # 10曲時の行の高さを維持し、曲数が少ない場合は画像を縦に縮める。
+    table_height = (
+        (FULL_RANKING_IMG_HEIGHT - TABLE_MARGIN_TOP - TABLE_MARGIN_BOTTOM)
+        * (len(tracks) + 1)
+        // (MAX_RANKED_TRACKS + 1)
+    )
+    img_size = (1080, TABLE_MARGIN_TOP + table_height + TABLE_MARGIN_BOTTOM)
     img = Image.new("RGB", img_size, color=theme_color)
     draw: ImageDraw.ImageDraw = ImageDraw.Draw(img)
 
@@ -108,7 +143,7 @@ def draw_ranking_img(data, img_path: str):
     position = (int(img_size[0] / 2 - draw_width(draw, initial_message_str(), font) / 2), 10)
     draw.text(xy=position, text=initial_message_str(), fill="white", font=font)
 
-    draw_table(draw, img_size, data)
+    draw_table(draw, img_size, tracks)
 
     # 日付
     font_size = 40
@@ -122,13 +157,13 @@ def draw_ranking_img(data, img_path: str):
     img.save(img_path)
 
 
-def draw_table(draw: ImageDraw.ImageDraw, size, data):
+def draw_table(draw: ImageDraw.ImageDraw, size, tracks):
     global theme_color
     width, height = size
-    num_songs = 10
+    num_songs = len(tracks)
 
-    margin_top = 100
-    margin_bottom = 50
+    margin_top = TABLE_MARGIN_TOP
+    margin_bottom = TABLE_MARGIN_BOTTOM
     side_margin = 20
 
     left_top = (side_margin, margin_top)
@@ -144,12 +179,13 @@ def draw_table(draw: ImageDraw.ImageDraw, size, data):
     draw.line((left_bottom, right_bottom), fill=theme_color, width=5)
 
     table_height = height - margin_top - margin_bottom
+    row_height = int(table_height / (num_songs + 1))
 
     # 横線
     xy = (left_top, right_top)
     for _ in range(num_songs):
         xy = [list(xy[0]), list(xy[1])]
-        xy[0][1] = xy[0][1] + int(table_height / 11)
+        xy[0][1] = xy[0][1] + row_height
         xy[1][1] = xy[0][1]
         xy = (tuple(xy[0]), tuple(xy[1]))
         draw.line(xy, fill=theme_color, width=5)
@@ -160,17 +196,10 @@ def draw_table(draw: ImageDraw.ImageDraw, size, data):
     draw.line(xy, fill=theme_color, width=5)
 
     titles, artists, playcount = ["タイトル"], ["アーティスト"], ["再生回数"]
-    track_num = 0
-    for track in data["toptracks"]["track"]:
-        if track_num < num_songs:
-            if int(track["playcount"]) >= 1:
-                titles.append(track["name"])
-                artists.append(track["artist"]["name"])
-                playcount.append(track["playcount"])
-                track_num += 1
-    if track_num != num_songs:
-        print("再生履歴が少なすぎます")
-        sys.exit()
+    for track in tracks:
+        titles.append(track["name"])
+        artists.append(track["artist"]["name"])
+        playcount.append(track["playcount"])
 
     # 順位
     rank_size = 80
@@ -184,10 +213,10 @@ def draw_table(draw: ImageDraw.ImageDraw, size, data):
             text = str(n)
             if n < 10:
                 rank_size = 100
-                rank_xy = (left_top[0] + 25, left_top[1] + 10 + n * int(table_height / (num_songs + 1)))
+                rank_xy = (left_top[0] + 25, left_top[1] + 10 + n * row_height)
             else:
                 rank_size = 85
-                rank_xy = (left_top[0] + 5, left_top[1] + 10 + n * int(table_height / (num_songs + 1)))
+                rank_xy = (left_top[0] + 5, left_top[1] + 10 + n * row_height)
             font = ImageFont.truetype(font=f"/tmp/{FONT3}" if is_lambda else FONT3, size=rank_size)
             draw.text(xy=rank_xy, text=text, fill="purple", font=font)
 
@@ -198,7 +227,7 @@ def draw_table(draw: ImageDraw.ImageDraw, size, data):
     for n in range(num_songs + 1):
         draw.text(xy=title_xy, text=titles[n], fill=(255, 130, 39), font=font)
         title_xy = list(title_xy)
-        title_xy[1] = title_xy[1] + int(table_height / (num_songs + 1))
+        title_xy[1] = title_xy[1] + row_height
         title_xy = tuple(title_xy)
 
     # 再生回数
@@ -211,7 +240,7 @@ def draw_table(draw: ImageDraw.ImageDraw, size, data):
             text += "回"
         draw.text(xy=playcount_xy, text=text, fill=0, font=font)
         playcount_xy = list(playcount_xy)
-        playcount_xy[1] = playcount_xy[1] + int(table_height / (num_songs + 1))
+        playcount_xy[1] = playcount_xy[1] + row_height
         playcount_xy = tuple(playcount_xy)
 
     # アーティスト
@@ -219,7 +248,7 @@ def draw_table(draw: ImageDraw.ImageDraw, size, data):
         artist = "" + artists[n]
         artist_xy = (
             width - side_margin - draw_width(draw, artist, font) - 20,
-            left_top[1] + 110 + n * int(table_height / (num_songs + 1)),
+            left_top[1] + 110 + n * row_height,
         )
         artist_size = 65
         font = ImageFont.truetype(font=f"/tmp/{FONT5}" if is_lambda else FONT5, size=artist_size)
@@ -227,13 +256,19 @@ def draw_table(draw: ImageDraw.ImageDraw, size, data):
             artist = artist[:-2] + "…"
             artist_xy = (
                 width - side_margin - draw_width(draw, artist, font) - 20,
-                left_top[1] + 110 + n * int(table_height / (num_songs + 1)),
+                left_top[1] + 110 + n * row_height,
             )
         font = ImageFont.truetype(font=f"/tmp/{FONT5}" if is_lambda else FONT5, size=artist_size)
         draw.text(xy=artist_xy, text=artist, fill="black", font=font)
         artist_xy = list(artist_xy)
         artist_xy[1] = artist_xy[1] + int(table_height / (num_songs + 1))
         artist_xy = tuple(artist_xy)
+
+
+def send_message_to_discord(message, webhook_url):
+    response = requests.post(webhook_url, json={"content": message}, timeout=30)
+    response.raise_for_status()
+    print(f"Response: {response}")
 
 
 def send_image_to_discord(message, webhook_url, file_path):
@@ -291,10 +326,6 @@ PERIOD_BY_KEY = {
 def lambda_handler(event, context):
     global is_lambda, period
     is_lambda = True
-
-    os.makedirs("/tmp/fonts/", exist_ok=True)
-    for f in [FONT1, FONT2, FONT3, FONT4, FONT5]:
-        download_s3_ttf(bucket_name=S3_BUCKET_NAME, file_path=f)
 
     # テスト用: イベントで period を指定されていればそれで実行
     if event and (key := event.get("period")):
