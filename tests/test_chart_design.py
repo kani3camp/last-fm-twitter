@@ -40,6 +40,11 @@ class ChartDesignTests(unittest.TestCase):
 
     def test_background_text_remains_readable_and_white_cards_keep_their_colors(self):
         original = Canvas.text
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "default.png"
+            render_ranking(tracks()[:6], output, "7day", DAY)
+            with Image.open(output) as image:
+                default_card = image.crop((100, 440, 900, 790))
         for color in ("#000000", "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#808080"):
             calls = []
 
@@ -54,14 +59,41 @@ class ChartDesignTests(unittest.TestCase):
                 for text, y, ink in calls:
                     if text in (*period_labels("7day", DAY)[:2], "そららPが", "Data: Last.fm") or y == 1928:
                         self.assertGreaterEqual(contrast_ratio(ink, color), 4.5)
-                with Image.open(output) as actual, Image.open(FIXTURES / "chart_6.png") as expected:
+                with Image.open(output) as actual:
                     self.assertEqual(actual.getpixel((0, 0)), tuple(bytes.fromhex(color[1:])))
                     # This crop is wholly inside the white #1 card, including its content.
-                    self.assertIsNone(
-                        ImageChops.difference(
-                            actual.crop((100, 440, 900, 790)), expected.crop((100, 440, 900, 790))
-                        ).getbbox()
-                    )
+                    self.assertIsNone(ImageChops.difference(actual.crop((100, 440, 900, 790)), default_card).getbbox())
+
+    def test_period_headings_fit_beside_the_date_and_inside_the_card(self):
+        original = Canvas.text
+        for period in ("7day", "1month", "12month"):
+            calls = {}
+
+            def record(
+                canvas,
+                value,
+                x,
+                y,
+                size,
+                color="#14213D",
+                weight=900,
+                latin=False,
+                line_height=None,
+                spacing=0,
+                *,
+                _calls=calls,
+            ):
+                width = font(size, weight, latin).getlength(value) / SCALE + max(0, len(value) - 1) * spacing
+                _calls[value] = (x, x + width)
+                return original(canvas, value, x, y, size, color, weight, latin, line_height, spacing)
+
+            with self.subTest(period=period), tempfile.TemporaryDirectory() as temp:
+                with patch.object(Canvas, "text", record):
+                    render_ranking(tracks(), Path(temp) / "ranking.png", period, DAY)
+                heading, title, winner, date = period_labels(period, DAY)
+                self.assertLessEqual(calls[heading][1] + 28, calls[date][0] - 18)
+                self.assertLessEqual(calls[title][1], 944)
+                self.assertLessEqual(calls[winner][1], 904)
 
     def test_reference_artboards_match_with_a_small_rasterization_tolerance(self):
         for count in (10, 6):
