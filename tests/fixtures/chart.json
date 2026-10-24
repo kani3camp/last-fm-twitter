@@ -1,0 +1,16 @@
+{
+  "toptracks": {
+    "track": [
+      {"name":"ミッドナイト・サイダー (feat. 春野ことり)","artist":{"name":"ルミナスガーデン"},"playcount":"14"},
+      {"name":"青い信号を待つ間に","artist":{"name":"ナツメロウ"},"playcount":"11"},
+      {"name":"Paper Moon Parade","artist":{"name":"Stella Kite"},"playcount":"9"},
+      {"name":"ゆびきりジェット (feat. 宵宮なぎ&夏目りん)","artist":{"name":"ルミナスガーデン"},"playcount":"7"},
+      {"name":"雨上がりのテレキャスターと君の長いため息","artist":{"name":"三日月レコード"},"playcount":"6"},
+      {"name":"Sugar Rush Hour","artist":{"name":"Pop Tangent"},"playcount":"5"},
+      {"name":"しずくのワルツ","artist":{"name":"霧島あおい"},"playcount":"4"},
+      {"name":"放課後ロケット","artist":{"name":"ナツメロウ"},"playcount":"3"},
+      {"name":"Lighthouse Letter (feat. 宇佐見そら)","artist":{"name":"Stella Kite"},"playcount":"2"},
+      {"name":"夜明けのフォトグラフ","artist":{"name":"白波ブラス・アンサンブル"},"playcount":"2"}
+    ]
+  }
+}

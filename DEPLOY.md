@@ -8,7 +8,11 @@
 uv run python build_lambda_layer.py
 ```
 
-→ `layer.zip` が生成される。**Lambda は Linux で動くため、`--python-platform linux` で Linux 用のパッケージ（Pillow の C 拡張など）を取得している。** Windows でビルドしてもそのまま Lambda で使える。
+→ `layer.zip` が生成される。**Lambda は Linux で動くため、`--python-platform linux` で Linux 用のパッケージ（Pillow／HarfBuzz の C 拡張など）を取得している。** 現在のビルド先はx86_64です。WindowsでZIPを生成できても、それだけではLambda実行の確認にはなりません。
+
+Chart 画像への移行では文字組み用の `uharfbuzz` を追加しているため、関数コードより先にこの新しいレイヤーを用意してください。従来のレイヤーのまま関数ZIPだけを更新すると、依存パッケージが不足します。
+
+レイヤーは `uv.lock` の実行時依存をハッシュ検証付きでインストールします。ローカルで検証した Pillow / HarfBuzz と、配布用レイヤーのバージョンがずれないようにしています。
 
 ## 2. AWS Lambda レイヤーを更新
 
@@ -26,18 +30,24 @@ uv run python build_lambda_layer.py
 
 ## 4. 関数コードを更新
 
-1. **コード** タブで、以下を手動でコピー＆ペースト：
-   - `main.py` の内容を **lambda_function.py**（またはメインハンドラのファイル）に貼り付け
-   - `utils.py` の内容を **utils.py** として同じ関数内に追加（新規ファイル作成）
+1. ローカルで以下を実行すると `function.zip` が生成される（AWS には接続しない）：
 
-2. **ハンドラ** が `lambda_function.lambda_handler` の場合は、`main.py` のハンドラ名に合わせて  
-   **ランタイム設定** のハンドラを `main.lambda_handler` に変更する。
+   ```bash
+   uv run python scripts/build_function.py
+   ```
+
+2. `function.zip` には `main.py`、`ranking_image.py`、`assets/fonts/`（フォントとライセンス）が入る。
+   `.env`、API キー、Webhook URL は含めない。依存パッケージは従来どおりレイヤーを使用する。
+3. デプロイする際は **コード** → **アップロード元** → **.zip ファイル** からこの ZIP をアップロードする。
+   `main.py` だけのコピー＆ペーストでは、新しい描画モジュールとフォントが不足する。
+4. **ランタイム設定** のハンドラを `main.lambda_handler` に設定する。
 
 ## 5. 環境変数・S3
 
 - **LASTFM_API_KEY**
 - **DISCORD_WEBHOOK_URL**
-- フォントは従来どおり S3 バケット `last-fm-twitter` の `fonts/` に配置されている前提
+- 新しい画像のフォントは関数 ZIP の `assets/fonts/` に同梱する。従来の S3 の `fonts/` は使用しない。
+- ローカル検証のみ行う場合は [README.md](README.md) のプレビューを使用する。Lambda テストや `main.py` の直接実行は Discord へ実投稿する。
 
 ## 6. 動作確認
 
@@ -56,8 +66,16 @@ uv run python build_lambda_layer.py
 
 | `period`    | 内容     |
 |------------|----------|
-| `"7day"`   | 今週     |
-| `"1month"` | 先月     |
-| `"12month"`| 今年     |
+| `"7day"`   | 過去7日間     |
+| `"1month"` | 過去1か月     |
+| `"12month"`| 過去12か月     |
 
 指定がない場合は従来どおり、日付に応じてのみ実行される（日曜 / 1日 / 12月30日）。
+
+### リリース前の実機確認
+
+本番構成は128MB・x86_64です。ローカルでは同じ上限・CPUアーキテクチャとAWS公式Python 3.13 Lambdaイメージを使い、API取得／投稿をモックした9回の画像生成を確認します（READMEの手順）。3倍描画での連続実行のメモリ不足を受け、2倍描画へ変更しています。
+
+**本番と同じ128MB・x86_64・新しい関数ZIP／レイヤーでのAWS実機確認が完了するまで、リリース検証完了とは扱いません。** 許可された検証環境で固定データから少なくとも1回、可能ならコールド／ウォーム双方の画像生成を行い、ネイティブ拡張の読み込み、画像内容、CloudWatchの `Max Memory Used` と実行時間を確認してください。既存ハンドラの通常イベントは実投稿するため、通知経路を隔離した検証関数などを使用します。
+
+今回の作業はローカル検証のみで、AWS実機での実行・デプロイ・Discordへの実投稿は行っていません。

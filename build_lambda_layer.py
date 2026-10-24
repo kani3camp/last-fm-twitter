@@ -32,7 +32,16 @@ def clean_layer_dir():
 def install_dependencies():
     """Install dependencies for Python 3.13, targeting Linux (Lambda runtime)."""
     print("Installing dependencies for Python 3.13 Lambda Layer (Linux target)...")
-    # Lambda runs on Amazon Linux 2; use --python-platform linux to get Linux wheels
+    requirements = subprocess.run(
+        ["uv", "export", "--locked", "--no-dev", "--no-emit-project", "--format", "requirements-txt"],
+        capture_output=True,
+        text=True,
+    )
+    if requirements.returncode != 0:
+        print("Error: Failed to export locked runtime dependencies")
+        print(requirements.stderr)
+        return False
+    # Python 3.13 Lambda runs on Amazon Linux 2023; request Linux wheels for its native extensions.
     # (Pillow etc. have C extensions that must match the runtime OS)
     result = subprocess.run(
         [
@@ -45,12 +54,12 @@ def install_dependencies():
             PYTHON_LIB_DIR,
             "--python-platform",
             "linux",
-            "boto3",
-            "pillow",
-            "requests",
-            "python-dotenv",
+            "--requirement",
+            "-",
+            "--require-hashes",
             "--no-compile",
         ],
+        input=requirements.stdout,
         capture_output=True,
         text=True,
     )
