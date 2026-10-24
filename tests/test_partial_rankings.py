@@ -1,8 +1,12 @@
 """再生履歴が10件未満の場合と0件の場合の処理テスト。"""
 
 import os
+import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from pathlib import Path
+from unittest.mock import patch
+
+from PIL import Image
 
 os.environ.setdefault("LASTFM_API_KEY", "test-lastfm-api-key")
 os.environ.setdefault("DISCORD_WEBHOOK_URL", "https://example.invalid/webhook")
@@ -38,7 +42,6 @@ class PartialRankingTests(unittest.TestCase):
             patch.object(main, "send_message_to_discord") as send_text,
             patch.object(main, "send_image_to_discord") as send_image,
             patch.object(main, "draw_ranking_img") as draw_image,
-            patch.object(main, "download_s3_ttf") as download_font,
         ):
             main.main()
 
@@ -48,7 +51,6 @@ class PartialRankingTests(unittest.TestCase):
         )
         send_image.assert_not_called()
         draw_image.assert_not_called()
-        download_font.assert_not_called()
 
     def test_only_unplayed_tracks_are_treated_as_empty(self):
         data = make_data(2)
@@ -101,54 +103,28 @@ class PartialRankingTests(unittest.TestCase):
         track = make_data(1)["toptracks"]["track"][0]
         self.assertEqual(main.select_ranked_tracks({"toptracks": {"track": track}}), [track])
 
-    def test_short_rankings_have_compact_images(self):
-        for count, expected_height in ((1, 515), (3, 880), (9, 1977), (10, 2160)):
-            with self.subTest(track_count=count):
-                image = Mock()
-                with (
-                    patch.object(main, "is_lambda", False),
-                    patch.object(main.Image, "new", return_value=image) as new_image,
-                    patch.object(main.ImageDraw, "Draw", return_value=Mock()),
-                    patch.object(main.ImageFont, "truetype", return_value=Mock()),
-                    patch.object(main, "draw_width", return_value=10),
-                    patch.object(main, "draw_height", return_value=10),
-                    patch.object(main, "draw_table") as draw_table,
-                ):
-                    main.draw_ranking_img(make_data(count), "test-ranking.jpg")
-
-                self.assertEqual(new_image.call_args.args[1], (1080, expected_height))
-                self.assertEqual(len(draw_table.call_args.args[2]), count)
-                image.save.assert_called_once_with("test-ranking.jpg")
-
-    def test_partial_table_renders_only_existing_ranks(self):
-        draw = Mock()
-        main.theme_color = (100, 150, 200)
-        with (
-            patch.object(main.ImageFont, "truetype", return_value=Mock()),
-            patch.object(main, "draw_width", return_value=10),
-        ):
-            main.draw_table(draw, (1080, 515), main.select_ranked_tracks(make_data(1)))
-
-        drawn_texts = [call.kwargs["text"] for call in draw.text.call_args_list]
-        self.assertIn("1", drawn_texts)
-        self.assertIn("Track 1", drawn_texts)
-        self.assertIn("Artist 1", drawn_texts)
-        self.assertNotIn("2", drawn_texts)
+    def test_short_rankings_preserve_the_full_design_canvas(self):
+        for count in (1, 3, 6, 9, 10):
+            with self.subTest(track_count=count), tempfile.TemporaryDirectory() as temp:
+                output = Path(temp) / "ranking.jpg"
+                with patch.object(main, "is_lambda", False):
+                    main.draw_ranking_img(make_data(count), str(output))
+                with Image.open(output) as image:
+                    self.assertEqual(image.size, (1000, 2000))
+                    self.assertEqual(image.format, "JPEG")
 
     def test_zero_tracks_cannot_be_rendered_directly(self):
-        with patch.object(main.Image, "new") as create_image:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "ranking.jpg"
             with self.assertRaises(ValueError):
-                main.draw_ranking_img(make_data(0), "test-ranking.jpg")
-
-        create_image.assert_not_called()
+                main.draw_ranking_img(make_data(0), str(output))
+            self.assertFalse(output.exists())
 
     def test_discord_text_message_contains_no_file(self):
         with patch.object(main.requests, "post") as post:
             main.send_message_to_discord("履歴なし", "https://example.invalid/webhook")
 
-        post.assert_called_once_with(
-            "https://example.invalid/webhook", json={"content": "履歴なし"}, timeout=30
-        )
+        post.assert_called_once_with("https://example.invalid/webhook", json={"content": "履歴なし"}, timeout=30)
         post.return_value.raise_for_status.assert_called_once_with()
 
 

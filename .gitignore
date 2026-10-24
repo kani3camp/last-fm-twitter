@@ -5,7 +5,12 @@ package.zip
 layer/
 layer.zip
 fonts/
+!assets/fonts/
 ranking.jpg
+preview*.png
+function.zip
+__pycache__/
+*.pyc
 
 # uv
 .venv/

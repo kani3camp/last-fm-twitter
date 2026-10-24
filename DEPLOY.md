@@ -26,18 +26,24 @@ uv run python build_lambda_layer.py
 
 ## 4. 関数コードを更新
 
-1. **コード** タブで、以下を手動でコピー＆ペースト：
-   - `main.py` の内容を **lambda_function.py**（またはメインハンドラのファイル）に貼り付け
-   - `utils.py` の内容を **utils.py** として同じ関数内に追加（新規ファイル作成）
+1. ローカルで以下を実行すると `function.zip` が生成される（AWS には接続しない）：
 
-2. **ハンドラ** が `lambda_function.lambda_handler` の場合は、`main.py` のハンドラ名に合わせて  
-   **ランタイム設定** のハンドラを `main.lambda_handler` に変更する。
+   ```bash
+   uv run python scripts/build_function.py
+   ```
+
+2. `function.zip` には `main.py`、`ranking_image.py`、`assets/fonts/`（フォントとライセンス）が入る。
+   `.env`、API キー、Webhook URL は含めない。依存パッケージは従来どおりレイヤーを使用する。
+3. デプロイする際は **コード** → **アップロード元** → **.zip ファイル** からこの ZIP をアップロードする。
+   `main.py` だけのコピー＆ペーストでは、新しい描画モジュールとフォントが不足する。
+4. **ランタイム設定** のハンドラを `main.lambda_handler` に設定する。
 
 ## 5. 環境変数・S3
 
 - **LASTFM_API_KEY**
 - **DISCORD_WEBHOOK_URL**
-- フォントは従来どおり S3 バケット `last-fm-twitter` の `fonts/` に配置されている前提
+- 新しい画像のフォントは関数 ZIP の `assets/fonts/` に同梱する。従来の S3 の `fonts/` は使用しない。
+- ローカル検証のみ行う場合は [README.md](README.md) のプレビューを使用する。Lambda テストや `main.py` の直接実行は Discord へ実投稿する。
 
 ## 6. 動作確認
 
